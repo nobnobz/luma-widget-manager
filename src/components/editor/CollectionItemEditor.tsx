@@ -373,7 +373,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
 
   const catalogsSectionContent = (
     <div className="flex flex-col gap-2.5">
-      <div className="flex items-center justify-between px-0.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/42 flex items-center h-8">
           {isLuma ? 'Catalogs inside this folder' : 'Catalogs'}
         </div>
@@ -687,7 +687,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
 
                     <div className="h-px w-full bg-zinc-200/60 dark:bg-white/5 mb-5 max-sm:mb-4" />
 
-                    <div className="lg:grid lg:grid-cols-[1fr_1.2fr] lg:gap-5">
+                    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-5">
                       {/* Right Column: Visuals */}
                       <motion.div
                         layout
@@ -824,9 +824,9 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                       </motion.div>
 
                       {/* Left Column: Config */}
-                      <div className="flex flex-col gap-4 max-sm:gap-3 lg:border-l lg:border-zinc-200/40 lg:dark:border-white/5 lg:pl-6">
+                      <div className="min-w-0 flex flex-col gap-4 max-sm:gap-3 lg:border-l lg:border-zinc-200/40 lg:dark:border-white/5 lg:pl-6">
                         {/* Catalogs Section: Left Column on Desktop */}
-                        <div className="hidden lg:block">
+                        <div className="hidden min-w-0 lg:block">
                           {catalogsSectionContent}
                         </div>
 

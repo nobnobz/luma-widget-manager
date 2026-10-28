@@ -234,7 +234,7 @@ export function CatalogCombobox({
           sideOffset={8} 
           align="start"
           collisionPadding={20}
-          className="z-[99999] w-[var(--radix-popover-trigger-width)] min-w-[340px] outline-none"
+          className="z-[99999] w-[var(--radix-popover-trigger-width)] min-w-[min(340px,calc(100vw-40px))] max-w-[calc(100vw-40px)] outline-none"
         >
           <AnimatePresence>
             {isOpen && renderContent()}

@@ -28,7 +28,7 @@ export function DataSourceEditor({
 
   return (
     <div 
-      className="flex items-center gap-1.5 w-full"
+      className="flex min-w-0 max-w-full items-center gap-1.5 w-full"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex-1 min-w-0">
@@ -108,7 +108,7 @@ export function DataSourceEditor({
       {onDelete && <Button
         variant="ghost"
         size="icon"
-        className={cn(editorDeleteButtonClass)}
+        className={cn(editorDeleteButtonClass, "shrink-0")}
         onClick={onDelete}
         title="Delete data source"
       >
