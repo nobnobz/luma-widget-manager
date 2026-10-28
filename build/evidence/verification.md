@@ -1,31 +1,29 @@
-# Luma Widget Manager verification — 2026-10-28
+# Luma Widget Manager — Fusion UI integration, 2026-10-28
 
-- Original: `nobnobz/fusion-widget-manager`, main at `7def0a0` (see upstream Git history for exact base).
-- New public repository: `nobnobz/luma-widget-manager`; original history and MIT license retained.
-- Unit suite: 143 passed, 0 failed.
-- Browser suite: 27 passed, 5 pre-existing conditional skips across desktop Chromium and mobile Chrome.
-- Final focused Luma browser suite: 4 passed, including folder move, JSON download content, three-level nesting, invalid import rejection, export validation, local persistence and undo.
-- ESLint, TypeScript and static production build passed.
-- Desktop/mobile screenshots: `build/evidence/luma-desktop.png`, `build/evidence/luma-mobile.png` (local evidence).
+## Result
 
-## Native contract checked
+The standalone Luma form editor was removed. The existing Fusion MainEditor, widget grid, collection editor, folder cards, import review, trash, manifest controls, theme controls and responsive dialogs are reused. Luma branding uses the existing Luma icon. The UME v4.0 structural starter appears in the existing template picker.
 
-Compared against the current local Luma source (`NuvioTVOS`, branch `codex/core-person-collections`):
+Native page editing opens from the existing folder card. Nested folders use CollectionItemEditor as well. Sections, closing subfolder grids, page order, duplicate/restore actions, page undo, per-catalog options and collection settings remain in their respective editing contexts. The third folder level cannot create more descendants.
 
-- LumaDomain `CollectionFolderPage.swift`: `sections`, `subfolders`, `subfolderTileShape`, `blockOrder`, three folder levels, closing subfolder grid.
-- LumaCatalog `MediaCollectionWire.swift`: native folder artwork fields, sources and view mode.
-- iOS `NativeCollectionEditor.swift` backup import: bare collection array, 4 MB and 500 collection limits. Export uses that bare array; the manager can additionally read the historical wrapper.
-- macOS `MacCollections.swift`: bare arrays and `{collections: [...]}` accepted.
-- LumaCatalog `FusionWidgetExport.swift`: flat Fusion v1 groups and add-on catalog rows; nested pages require native JSON.
+## Verification
 
-## Known limitation
+- Unit suite: 150 passed, 0 failed, including native preservation through partial-import normalization, storage, import review, catalog options and animated-cover application.
+- TypeScript, ESLint and production static build passed.
+- Existing browser suite passed alongside six new Luma workflow checks. Two additional cover-pack checks initially had an ambiguous status selector; the selector was corrected and the final focused Luma suite was rerun on desktop/mobile.
+- Reference and implementation screenshots were captured at matching 1440×1080 dimensions and compared side by side: `fusion-luma-comparison.png`. Desktop widget/hub and mobile hub screenshots are local evidence in this directory.
 
-The inspected iOS/macOS browsers render nested folder pages. The tvOS `LumaCollectionFolder` decoder/browser currently does not render nested `sections`/`subfolders`. A successful tvOS file import therefore does not imply nested-page support. The manager and README state this explicitly. No Luma application changes or physical-device imports were performed.
+## Import contracts and boundaries
 
-Native collection exports cannot carry independent Home catalog-row placement. Fusion `row.classic` conversion explicitly reports its conversion into a collection folder.
+- Native Luma collections export uses a bare array, with iOS's 4 MB / 500 collection bounds and LumaCore's maximum three folder levels.
+- Unknown native folder/source fields and animation fields remain attached to editor projections, including through reload and import review. Incomplete sources block export visibly.
+- The active AIOMetadata configuration URL becomes the portable `preset:aiometadata` reference on native export.
+- Native-only pages cannot be silently downgraded to legacy Fusion/Omni output.
+- Previous standalone-editor native drafts migrate into the unified editor; the original native draft remains as a recovery copy until intentional restart.
 
-Local caches and temporary files use one persistent root on the external SSD. The webpack build avoids Turbopack's rejection of external dependency symlinks.
+## Packs
 
-## CI runner compatibility
-
-The initial GitHub quality run failed during browser setup because Playwright 1.58.2 does not support the newly selected Ubuntu 26.04 runner. The quality workflow pins Ubuntu 24.04, which that existing Playwright release supports.
+- The existing animated-cover browser applies video/backdrop URLs to matching nested folder titles and preserves custom videos. Videos are included in the ordinary Luma collections export. Missing widget-template blueprints do not disable applying cover videos to existing folders.
+- The existing tag-pack browser provides the original Fusion UME badge-pack URLs and Luma instructions. Badge packs use Luma's separate settings importer; they are not incorrectly placed in collection JSON.
+- Confirmed against the current Luma source: shared StreamBadges parser/settings, native collection wire format and tvOS focus-video cells. Focus-video playback is implemented on tvOS. Persistence of animation fields on other platforms is not a playback claim.
+- iOS/macOS render nested pages. The inspected tvOS folder browser still lacks that capability. No Luma application code or physical-device import was changed/performed.

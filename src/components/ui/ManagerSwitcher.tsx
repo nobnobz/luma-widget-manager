@@ -5,7 +5,7 @@ import { ArrowUpRight, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-type ManagerId = "fusion" | "omni";
+type ManagerId = "luma" | "fusion" | "omni";
 
 interface ManagerSwitcherProps {
   currentManager: ManagerId;
@@ -22,6 +22,7 @@ const managers: Record<
     href: string;
   }
 > = {
+  luma: { id: "luma", name: "Luma Widget Manager", shortName: "Luma", description: "Create Luma widgets, hubs and nested folders.", href: "https://nobnobz.github.io/luma-widget-manager/" },
   fusion: {
     id: "fusion",
     name: "Fusion Widget Manager",

@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfig } from '@/context/ConfigContext';
 import { useState, memo } from 'react';
 import Image from 'next/image';
 import { 
@@ -23,6 +24,7 @@ import { ManagerSwitcher } from '@/components/ui/ManagerSwitcher';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import LogoImage from '@/../public/branding/clown_logo.png';
+import LumaLogoImage from '@/../public/branding/luma-icon.png';
 
 interface EditorMobileHeaderProps {
   view: 'welcome' | 'selection' | 'editor';
@@ -43,6 +45,7 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
   onShowRestartConfirm,
   onOpenSupport
 }: EditorMobileHeaderProps) {
+  const { isLuma } = useConfig();
   const [isOpen, setIsOpen] = useState(false);
   const { resolvedTheme } = useTheme();
   const MobileThemeIcon = resolvedTheme === 'dark' ? Moon : Sun;
@@ -58,7 +61,7 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
       <div className={mobileHeaderShellClass}>
         {view === 'welcome' ? (
           <div className="flex items-center justify-between gap-2.5">
-            <ManagerSwitcher currentManager="fusion" className="h-[2.125rem] min-w-0 px-2.5 text-[11px] shadow-none" />
+            <ManagerSwitcher currentManager={isLuma ? "luma" : "fusion"} className="h-[2.125rem] min-w-0 px-2.5 text-[11px] shadow-none" />
             <div className="flex shrink-0 items-center gap-1.5">
               <Button
                 data-testid="open-setup-guide-mobile"
@@ -115,10 +118,10 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <div className="relative size-12 shrink-0 overflow-hidden">
-                <Image src={LogoImage} alt="Logo" fill className="object-contain" priority />
+                <Image src={isLuma ? LumaLogoImage : LogoImage} alt="Logo" fill className="object-contain" priority />
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
-                <h1 className="truncate text-[13px] font-black leading-none tracking-[-0.03em]">Fusion Widget</h1>
+                <h1 className="truncate text-[13px] font-black leading-none tracking-[-0.03em]">{isLuma ? 'Luma Widget' : 'Fusion Widget'}</h1>
                 <span className="truncate pt-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-primary/90 leading-none">Manager</span>
               </div>
             </div>

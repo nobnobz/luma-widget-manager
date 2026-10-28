@@ -59,7 +59,7 @@ export function countInvalidCatalogsInItem(
   catalogs: AIOMetadataCatalog[]
 ): number {
   if (item.dataSources.length === 0) {
-    return 1;
+    return item.lumaFolder ? 0 : 1;
   }
 
   return item.dataSources.filter((dataSource) => isInvalidCatalogDataSource(dataSource, catalogs)).length;

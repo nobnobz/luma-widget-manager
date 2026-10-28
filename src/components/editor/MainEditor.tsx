@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { documentToEditor, isNativeDocument } from '@/lib/luma-editor-adapter';
+import { importDocument, starterDocument } from '@/lib/luma-document';
 import { useConfig } from '@/context/ConfigContext';
 import { WidgetSelectionGrid } from './WidgetSelectionGrid';
 import { ManifestModal } from './ManifestModal';
@@ -30,6 +32,7 @@ import {
   editorFooterPrimaryButtonClass,
 } from './editorSurfaceStyles';
 import LogoImage from '@/../public/branding/clown_logo.png';
+import LumaLogoImage from '@/../public/branding/luma-icon.png';
 import { convertAiometadataImportToFusion, isAiometadataImportPayload } from '@/lib/aiometadata-import';
 import { convertOmniToFusion } from '@/lib/omni-converter';
 import { shouldPromptForAiometadataManifestSetup } from '@/lib/aiometadata-manifest-detection';
@@ -197,6 +200,7 @@ const INCLUDED_PACK_CARDS: FeaturedPackCard[] = [
 ] as const;
 
 export function MainEditor() {
+  const { isLuma } = useConfig();
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [expandedWidgetId, setExpandedWidgetId] = useState<string | null>(null);
@@ -221,9 +225,10 @@ export function MainEditor() {
     contentClassName: undefined,
   });
 
-  const [githubTemplates, setGithubTemplates] = useState<RepositoryTemplate[]>([]);
+  const starterTemplate: RepositoryTemplate = { kind: 'fusion', filename: 'UME v4.0 Hub Starter', path: '', rawUrl: 'luma:starter', version: 'v4.0' };
+  const [githubTemplates, setGithubTemplates] = useState<RepositoryTemplate[]>(isLuma ? [starterTemplate] : []);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
-  const [selectedTemplateUrl, setSelectedTemplateUrl] = useState<string>('');
+  const [selectedTemplateUrl, setSelectedTemplateUrl] = useState<string>(isLuma ? 'luma:starter' : '');
   const [aiometadataTemplate, setAiometadataTemplate] = useState<RepositoryTemplate | null>(null);
   const [aiometadataCatalogsOnlyTemplate, setAiometadataCatalogsOnlyTemplate] = useState<RepositoryTemplate | null>(null);
   const [aiostreamsTemplate, setAiostreamsTemplate] = useState<RepositoryTemplate | null>(null);
@@ -388,6 +393,10 @@ export function MainEditor() {
         return true;
       }
 
+      if (isNativeDocument(payload)) {
+        applyImportConfig(documentToEditor(importDocument(payload).document));
+        return true;
+      }
       if (isFusionWidgetsPayload(payload)) {
         applyImportConfig(payload);
         if (shouldOpenManifestModalForImportedConfig(payload)) {
@@ -430,11 +439,11 @@ export function MainEditor() {
       setIsLoadingTemplates(true);
       try {
         const repository = await fetchTemplateRepository();
-        setGithubTemplates(repository.fusionTemplates);
+        setGithubTemplates(isLuma ? [{ kind: 'fusion', filename: 'UME v4.0 Hub Starter', path: '', rawUrl: 'luma:starter', version: 'v4.0' }, ...repository.fusionTemplates] : repository.fusionTemplates);
         setAiometadataTemplate(repository.aiometadataTemplate ?? null);
         setAiometadataCatalogsOnlyTemplate(repository.aiometadataCatalogsOnlyTemplate ?? null);
         setAiostreamsTemplate(repository.aiostreamsTemplate ?? null);
-        setSelectedTemplateUrl(repository.defaultFusionTemplate?.rawUrl ?? '');
+        setSelectedTemplateUrl(isLuma ? 'luma:starter' : repository.defaultFusionTemplate?.rawUrl ?? '');
       } catch (error) {
         console.error('Error fetching UME templates:', error);
       } finally {
@@ -443,7 +452,7 @@ export function MainEditor() {
     };
 
     fetchTemplates();
-  }, []);
+  }, [isLuma]);
 
   useEffect(() => {
     let cancelled = false;
@@ -478,6 +487,7 @@ export function MainEditor() {
 
   const handleLoadTemplate = async () => {
     if (!selectedTemplateUrl) return;
+    if (selectedTemplateUrl === 'luma:starter') { applyImportConfig(documentToEditor(starterDocument())); return; }
 
     setIsLoadingTemplates(true);
     try {
@@ -768,7 +778,7 @@ export function MainEditor() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center max-sm:justify-start px-4 py-6 sm:px-8 sm:py-8 md:px-12 md:py-10 max-sm:pb-[calc(env(safe-area-inset-bottom)+2rem)] animate-in fade-in duration-700 max-w-2xl md:max-w-[46rem] lg:max-w-[49rem] mx-auto w-full relative">
           <div className="absolute top-5 right-5 hidden sm:flex items-center gap-1 animate-in fade-in slide-in-from-right-4 duration-700 delay-300">
-            <ManagerSwitcher currentManager="fusion" className="h-9 px-3 text-[13px]" />
+            <ManagerSwitcher currentManager={isLuma ? "luma" : "fusion"} className="h-9 px-3 text-[13px]" />
             <div className="w-px h-4 bg-border/45 mx-0.5" />
             <Button
               data-testid="open-setup-guide"
@@ -800,21 +810,21 @@ export function MainEditor() {
           <div className="relative group mb-0 sm:-mb-4 max-sm:mt-4 text-center flex flex-col items-center">
             <div className="relative size-38 sm:size-52 flex items-center justify-center rounded-full overflow-hidden select-none">
               <Image
-                src={LogoImage}
-                alt="Clown Logo"
+                src={isLuma ? LumaLogoImage : LogoImage}
+                alt={isLuma ? "Luma Logo" : "Clown Logo"}
                 width={208}
                 height={208}
-                className="w-full h-full object-contain"
+                className={cn("w-full h-full object-contain", isLuma && "scale-[0.42]")}
                 priority
               />
             </div>
 
             <h2 className="text-3xl sm:text-6xl font-black tracking-tighter mb-2 sm:mb-4 text-center max-sm:max-w-[12ch] leading-[0.95]">
-              Fusion Widget <span className="text-primary">Manager</span>
+              {isLuma ? 'Luma Widget' : 'Fusion Widget'} <span className="text-primary">Manager</span>
             </h2>
 
             <p className="text-[12px] sm:text-sm max-w-sm text-center mb-6 sm:mb-10 text-muted-foreground/80 font-medium tracking-tight leading-relaxed">
-              Manage your Fusion widgets through a powerful web interface.
+              {isLuma ? 'Manage your Luma widgets, hubs and folders through a powerful web interface.' : 'Manage your Fusion widgets through a powerful web interface.'}
             </p>
           </div>
 
@@ -871,7 +881,7 @@ export function MainEditor() {
                 onChange={(e) => setPastedJson(e.target.value)}
                 onFocus={() => setIsImportFocused(true)}
                 onBlur={() => setIsImportFocused(false)}
-                placeholder={isImportFocused ? "Paste JSON payload here..." : (isDraggingFile ? "Drop your JSON file here!" : "Paste your Fusion widget export, a JSON URL, or drag & drop a file here...")}
+                placeholder={isImportFocused ? "Paste JSON payload here..." : (isDraggingFile ? "Drop your JSON file here!" : "Paste your Luma or Fusion widget export, a JSON URL, or drag & drop a file here...")}
                 className={cn(
                   "min-h-[200px] max-sm:min-h-[100px] pt-32 max-sm:pt-28 pb-10 max-sm:pb-5 font-mono text-base sm:text-xs",
                   "bg-white/40 dark:bg-white/[0.03] border-2 border-dashed border-zinc-200/80 dark:border-white/10 rounded-3xl max-sm:rounded-2xl px-10 max-sm:px-5 text-center focus:text-left focus-visible:ring-primary/20 transition-all leading-relaxed placeholder:text-center focus:placeholder:text-left placeholder:text-muted-foreground/60 placeholder:font-sans resize-y overflow-y-auto backdrop-blur-sm",
@@ -937,7 +947,7 @@ export function MainEditor() {
                       <PopoverTrigger asChild>
                         <button className="flex-1 h-full min-w-0 bg-transparent border-none focus:outline-none text-[11px] sm:text-[12px] font-bold pl-3 pr-4 appearance-none cursor-pointer hover:bg-muted/10 rounded-2xl transition-all text-left flex items-center justify-between group/select">
                           <span className="truncate">
-                            {selectedTemplate ? formatTemplateLabel('UME Fusion Template', selectedTemplate) : 'Select Template...'}
+                            {selectedTemplateUrl === 'luma:starter' ? 'UME v4.0 Hub Starter' : selectedTemplate ? formatTemplateLabel('UME Fusion Template', selectedTemplate) : 'Select Template...'}
                           </span>
                           <ChevronDown className={cn("size-3.5 text-muted-foreground/50 group-hover/select:text-primary transition-all shrink-0", isTemplatePopoverOpen && "rotate-180")} />
                         </button>
@@ -958,7 +968,7 @@ export function MainEditor() {
                                   : "hover:bg-muted text-foreground/80 hover:text-foreground"
                               )}
                             >
-                              <span className="truncate">{formatTemplateLabel('UME Fusion Template', template)}</span>
+                              <span className="truncate">{template.rawUrl === 'luma:starter' ? 'UME v4.0 Hub Starter' : formatTemplateLabel('UME Fusion Template', template)}</span>
                               {selectedTemplateUrl === template.rawUrl && <Check className="size-3.5 shrink-0" />}
                             </button>
                           ))}
@@ -1154,10 +1164,10 @@ export function MainEditor() {
               <div className="flex items-center justify-between gap-4 h-20 px-4 lg:px-8 rounded-3xl bg-background/60 backdrop-blur-xl border border-border">
                 <div className="flex min-w-0 items-center gap-3 lg:gap-6 group/logo">
                   <div className="size-14 lg:size-20 relative flex shrink-0 items-center justify-center overflow-hidden transition-all duration-500 group-hover/logo:scale-110 group-hover/logo:rotate-3">
-                    <Image src={LogoImage} alt="Logo" fill className="object-contain" priority />
+                    <Image src={isLuma ? LumaLogoImage : LogoImage} alt="Logo" fill className="object-contain" priority />
                   </div>
                   <div className="flex min-w-[9.5rem] shrink-0 flex-col -space-y-1">
-                    <h1 className="whitespace-nowrap text-sm lg:text-base font-black tracking-tight leading-none">Fusion Widget</h1>
+                    <h1 className="whitespace-nowrap text-sm lg:text-base font-black tracking-tight leading-none">{isLuma ? 'Luma Widget' : 'Fusion Widget'}</h1>
                     <span className="whitespace-nowrap text-[11px] lg:text-[12px] font-black tracking-[0.16em] lg:tracking-[0.2em] text-primary uppercase opacity-90">Manager</span>
                   </div>
                 </div>
@@ -1206,7 +1216,7 @@ export function MainEditor() {
         <div className="flex-1">{renderContent()}</div>
 
         <footer className="w-full py-8 sm:py-12 pb-[calc(env(safe-area-inset-bottom)+2rem)] flex flex-col items-center gap-4 mt-auto">
-          <a href="https://github.com/nobnobz/fusion-widget-manager" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50 hover:text-primary transition-all">
+          <a href={isLuma ? "https://github.com/nobnobz/luma-widget-manager" : "https://github.com/nobnobz/fusion-widget-manager"} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50 hover:text-primary transition-all">
             <Github className="size-3.5 opacity-60 hover:opacity-100" />Project Repository
           </a>
           <div className="flex flex-col items-center gap-1 opacity-45">
@@ -1398,10 +1408,10 @@ export function MainEditor() {
                 </DrawerHeader>
                 <div className="mt-4 rounded-2xl border border-primary/15 bg-primary/[0.04] px-4 py-3 text-left">
                   <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                    Fusion Setup Note
+                    {isLuma ? 'Luma Source Picker Note' : 'Fusion Setup Note'}
                   </p>
                   <p className="mt-1 text-xs font-medium leading-relaxed text-muted-foreground/60">
-                    In Fusion, go to Settings &gt; Filters &gt; Source Card Fields and disable <span className="font-semibold text-foreground">Show Title</span> so you do not see the filename.
+                    {isLuma ? <>In Luma’s stream/source settings, disable <span className="font-semibold text-foreground">Show Stream Titles</span> if you prefer badges without the release filename.</> : <>In Fusion, go to Settings &gt; Filters &gt; Source Card Fields and disable <span className="font-semibold text-foreground">Show Title</span> so you do not see the filename.</>}
                   </p>
                 </div>
                 <DrawerFooter className="mt-6 px-0 pb-0">
@@ -1436,10 +1446,10 @@ export function MainEditor() {
                 </DialogHeader>
                 <div className="mt-4 rounded-2xl border border-primary/15 bg-primary/[0.04] px-4 py-3 text-left">
                   <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                    Fusion Setup Note
+                    {isLuma ? 'Luma Source Picker Note' : 'Fusion Setup Note'}
                   </p>
                   <p className="mt-1 text-xs font-medium leading-relaxed text-muted-foreground/60">
-                    In Fusion, go to Settings &gt; Filters &gt; Source Card Fields and disable <span className="font-semibold text-foreground">Show Title</span> so you do not see the filename.
+                    {isLuma ? <>In Luma’s stream/source settings, disable <span className="font-semibold text-foreground">Show Stream Titles</span> if you prefer badges without the release filename.</> : <>In Fusion, go to Settings &gt; Filters &gt; Source Card Fields and disable <span className="font-semibold text-foreground">Show Title</span> so you do not see the filename.</>}
                   </p>
                 </div>
                 <DialogFooter className="mt-6 flex-col gap-2.5">

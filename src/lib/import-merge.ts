@@ -268,7 +268,7 @@ function computeCollectionItemDiff(
   if (getItemImageChanged(matchedRef.item, incomingItem)) {
     changes.add('image');
   }
-  if (getCatalogFingerprint(matchedRef.item.dataSources) !== getCatalogFingerprint(incomingItem.dataSources)) {
+  if (getCatalogFingerprint(matchedRef.item.dataSources) !== getCatalogFingerprint(incomingItem.dataSources) || JSON.stringify(matchedRef.item.lumaFolder) !== JSON.stringify(incomingItem.lumaFolder)) {
     changes.add('catalogs');
   }
 
@@ -378,7 +378,8 @@ export function buildImportReviewState(existingWidgets: Widget[], incomingWidget
       const reconcileRemovals = matchedWidget.dataSource.payload.items
         .filter((item) => !matchedExistingItemIdsInTarget.has(item.id))
         .map((item) => item.id);
-      const hasActionableItems = Object.values(itemDiffs).some((itemDiff) => itemDiff.status !== 'unchanged')
+      const collectionSettingsChanged = !!incomingWidget.lumaHub && (JSON.stringify({ ...incomingWidget.lumaHub, folders: undefined }) !== JSON.stringify({ ...matchedWidget.lumaHub, folders: undefined }) || incomingWidget.title !== matchedWidget.title);
+      const hasActionableItems = collectionSettingsChanged || Object.values(itemDiffs).some((itemDiff) => itemDiff.status !== 'unchanged')
         || reconcileRemovals.length > 0;
       widgetDiffs[incomingWidget.id] = {
         status: hasActionableItems ? 'existing' : 'unchanged',
@@ -480,6 +481,7 @@ function updateMovedOrExistingItem(
       }
     } else {
       nextItem.dataSources = cloneItem(incomingItem).dataSources;
+      nextItem.lumaFolder = structuredClone(incomingItem.lumaFolder);
     }
   }
 
@@ -642,6 +644,12 @@ export function applyImportReview(
     }
 
     const targetWidget = ensureCollectionWidget(finalWidgets[targetWidgetIdx]!);
+    if (incomingCollectionWidget.lumaHub) {
+      targetWidget.lumaHub = structuredClone(incomingCollectionWidget.lumaHub);
+      targetWidget.title = incomingCollectionWidget.title;
+      targetWidget.hideTitle = incomingCollectionWidget.hideTitle;
+      changedExistingWidgetIds.add(targetWidget.id);
+    }
     const targetOriginalItemIds = new Set(targetWidget.dataSource.payload.items.map((item) => item.id));
     const reconcileKeepIds = new Set<string>();
 

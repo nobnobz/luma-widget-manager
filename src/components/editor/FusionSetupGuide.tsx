@@ -14,6 +14,7 @@ import {
   RefreshCcw,
   Sparkles,
 } from "lucide-react";
+import { useConfig } from '@/context/ConfigContext';
 import { Button } from "@/components/ui/button";
 import type { RepositoryTemplate } from "@/lib/template-repository";
 import { formatTemplateLabel } from "@/lib/template-repository";
@@ -51,6 +52,8 @@ export function FusionSetupGuide({
   isTemplateLoading = false,
   onDownloadAiometadataTemplate,
 }: FusionSetupGuideProps) {
+  const { isLuma } = useConfig();
+  if (isLuma) return <FusionGuideDialog open={open} onOpenChange={onOpenChange} title="Luma Setup Guide" icon={BookOpen} description="The familiar widget workflow, extended with Luma hubs."><FusionGuideFlow title="Build your layout" items={[{ title: 'Load or create', detail: 'Import Luma/Fusion JSON, choose a UME template or create a widget.', icon: Import }, { title: 'Connect catalogs', detail: 'Sync your AIOMetadata manifest and select catalogs in folder cards.', icon: Link2 }, { title: 'Build hub pages', detail: 'Open a folder, then Edit hub page to add sections and subfolders.', icon: Sparkles }, { title: 'Export for Luma', detail: 'Choose Luma in Export JSON. Import in Collection Backups on iOS or Collections on macOS.', icon: Download }]} /><div className="mx-2 grid gap-4 sm:mx-0 sm:grid-cols-2"><section className="rounded-2xl border border-border/60 p-5"><h3 className="font-bold">Animated covers</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Use the existing Animated Covers area to apply a pack to matching folders. Videos and background artwork are included in the Luma export, including nested folders. Custom videos are preserved. Focus-video playback is currently implemented on tvOS.</p></section><section className="rounded-2xl border border-border/60 p-5"><h3 className="font-bold">Stream badge packs</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Choose a variant in Stream Badge Packs and copy its URL. Import that URL in Luma’s Badge Packs settings. Tags have a separate importer and are not part of collection JSON.</p></section></div><p className="px-2 text-sm text-muted-foreground">Folders can nest to three levels. iOS and macOS render hub pages; the current tvOS browser still needs nested-page support. Empty hub layouts need real catalog sources before they show content. Catalog widgets export as a collection containing one catalog folder.</p></FusionGuideDialog>;
   const templateLabel = aiometadataTemplate
     ? formatTemplateLabel("UME AIOMetadata Template", aiometadataTemplate)
     : "UME AIOMetadata Template";

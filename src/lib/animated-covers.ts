@@ -1,3 +1,4 @@
+import { normalizeFusionConfigDetailed } from './widget-domain';
 import { convertOmniToFusion } from './omni-converter';
 import { compareVersions } from './template-repository';
 import type { CollectionItem, CollectionRowWidget } from './types/widget';
@@ -231,7 +232,9 @@ export async function fetchAnimatedCoverWidgetBlueprints(
 
   let converted;
   try {
-    converted = convertOmniToFusion(snapshotPayload);
+    converted = snapshotPayload && typeof snapshotPayload === 'object' && 'exportType' in snapshotPayload && snapshotPayload.exportType === 'fusionWidgets'
+      ? normalizeFusionConfigDetailed(snapshotPayload).config
+      : convertOmniToFusion(snapshotPayload);
   } catch (error) {
     throw new Error(`Could not convert UME snapshot to Fusion widgets: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

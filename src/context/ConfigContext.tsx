@@ -1,5 +1,8 @@
 "use client";
 
+import { usePathname } from 'next/navigation';
+import { assertLegacyExportCompatible, documentToEditor, normalizeLumaImport } from '@/lib/luma-editor-adapter';
+import { parseDocument } from '@/lib/luma-document';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   AIOMetadataCatalog,
@@ -47,6 +50,7 @@ interface MergeResult {
 }
 
 interface ConfigContextType {
+  isLuma: boolean;
   widgets: Widget[];
   trash: TrashWidgetEntry[];
   itemTrash: TrashCollectionItemEntry[];
@@ -104,6 +108,8 @@ function buildStoredState(state: AppState) {
 }
 
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isLuma = !pathname?.includes('/fusion');
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [trash, setTrash] = useState<TrashWidgetEntry[]>([]);
   const [itemTrash, setItemTrash] = useState<TrashCollectionItemEntry[]>([]);
@@ -119,7 +125,15 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const lastManifestDetectionSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('fusion-widgets-config');
+    let saved = localStorage.getItem('fusion-widgets-config');
+    const previousLuma = localStorage.getItem('luma-widget-manager.document.v1');
+    try {
+      if (previousLuma && !localStorage.getItem('luma-widget-manager.migrated.v1') && (!saved || !(JSON.parse(saved).widgets?.length))) {
+        saved = JSON.stringify(documentToEditor(parseDocument(previousLuma).document));
+        localStorage.setItem('fusion-widgets-config', saved);
+        localStorage.setItem('luma-widget-manager.migrated.v1', 'yes');
+      }
+    } catch { /* Keep the recovery copy untouched. */ }
     if (saved) {
       try {
         const normalized = normalizeLoadedState(JSON.parse(saved));
@@ -193,7 +207,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const normalizedInput = isAiometadataImportPayload(config)
         ? convertAiometadataImportToFusion(config)
-        : config;
+        : normalizeLumaImport(config);
       return normalizeFusionConfigDetailed(normalizedInput, {
         manifestUrl: overrides?.manifestUrl ?? manifestUrl,
         replacePlaceholder: overrides?.replacePlaceholder ?? replacePlaceholder,
@@ -326,6 +340,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     skipInvalidAiometadataSources?: boolean;
     invalidAiometadataMode?: FusionInvalidCatalogExportMode;
   }) => {
+    assertLegacyExportCompatible(widgets);
     const normalized = processConfigWithManifest(
       {
         exportType: 'fusionWidgets',
@@ -346,6 +361,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   }, [widgets, manifestUrl, replacePlaceholder, manifestCatalogs]);
 
   const exportOmniConfig = useCallback((options?: { nativeTraktStrategy?: 'reject' | 'bridge' }) => {
+    assertLegacyExportCompatible(widgets);
     const normalized = processConfigWithManifest(
       {
         exportType: 'fusionWidgets',
@@ -756,6 +772,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   }, [widgets]);
 
   const clearConfig = useCallback(() => {
+    localStorage.removeItem('luma-widget-manager.document.v1');
     setWidgets([]);
     setTrash([]);
     setItemTrash([]);
@@ -767,6 +784,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConfigContext.Provider
       value={{
+        isLuma,
         widgets,
         trash,
         itemTrash,

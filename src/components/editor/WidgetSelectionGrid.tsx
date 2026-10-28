@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import Image from 'next/image';
+import { applyAnimatedCovers, exportEditorForLuma } from '@/lib/luma-editor-adapter';
 import { useConfig } from '@/context/ConfigContext';
 import { SortableWidget } from './SortableWidget';
 import { Button } from '@/components/ui/button';
@@ -305,13 +306,15 @@ function WidgetSelectionGridComponent({
     fetchManifest,
     syncManifest,
     exportConfig,
+    replaceConfig,
+    isLuma,
     exportOmniConfig,
     reorderWidgets,
     restoreWidget,
     restoreCollectionItem,
     emptyTrash,
   } = useConfig();
-  const [exportMode, setExportMode] = useState<'fusion' | 'omni' | 'aiometadata'>('fusion');
+  const [exportMode, setExportMode] = useState<'luma' | 'fusion' | 'omni' | 'aiometadata'>(isLuma ? 'luma' : 'fusion');
   const [searchQuery, setSearchQuery] = useState('');
   const [animatedCoverPacks, setAnimatedCoverPacks] = useState<AnimatedCoverPack[]>([]);
   const [selectedAnimatedCoverPackSlug, setSelectedAnimatedCoverPackSlug] = useState<string>('');
@@ -338,6 +341,8 @@ function WidgetSelectionGridComponent({
 
   const [showPreview, setShowPreview] = useState(false);
   const [showImportMergeDialog, setShowImportMergeDialog] = useState(false);
+  const [packImportJson, setPackImportJson] = useState<string | undefined>();
+  const [coverMessage, setCoverMessage] = useState('');
   const [showTrash, setShowTrash] = useState(false);
   const [copiedAction, setCopiedAction] = useState<'preview' | 'missing-catalogs' | 'full-aiometadata' | null>(null);
   const [isRefreshingManifest, setIsRefreshingManifest] = useState(false);
@@ -507,9 +512,14 @@ function WidgetSelectionGridComponent({
     setAnimatedCoversError(null);
     try {
       const packs = await fetchAnimatedCoverPacks();
-      const widgetBlueprintBundle = await fetchAnimatedCoverWidgetBlueprints(packs);
       setAnimatedCoverPacks(packs);
-      setAnimatedCoverWidgetBlueprints(widgetBlueprintBundle.blueprints);
+      try {
+        const widgetBlueprintBundle = await fetchAnimatedCoverWidgetBlueprints(packs);
+        setAnimatedCoverWidgetBlueprints(widgetBlueprintBundle.blueprints);
+      } catch {
+        // The cover browser and applying videos do not depend on widget-template availability.
+        setAnimatedCoverWidgetBlueprints({});
+      }
       setSelectedAnimatedCoverPackSlug((previous) =>
         previous && packs.some((pack) => pack.slug === previous) ? previous : (packs[0]?.slug ?? '')
       );
@@ -1215,6 +1225,9 @@ function WidgetSelectionGridComponent({
 
   const previewContent = useMemo(() => {
     if (!showPreview) return '';
+    if (exportMode === 'luma') {
+      try { return exportEditorForLuma(widgets, manifestUrl); } catch (error) { return `Error: ${error instanceof Error ? error.message : 'Export failed.'}`; }
+    }
 
     if (exportMode === 'fusion' && requiresFusionInvalidCatalogConfirmation && !isFusionInvalidCatalogConfirmed) {
       const skipSummaryParts = [
@@ -1309,6 +1322,8 @@ function WidgetSelectionGridComponent({
       return `Error: ${error instanceof Error ? error.message : 'Export failed.'}`;
     }
   }, [
+    widgets,
+    manifestUrl,
     aiometadataPreviewExport,
     basePreviewState.error,
     exportMode,
@@ -1665,6 +1680,7 @@ function WidgetSelectionGridComponent({
 
   const handleOpenAnimatedPreviewPackGuide = (pack: AnimatedCoverPack) => {
     selectAnimatedCoverPack(pack);
+    setCoverMessage('');
     setAnimatedInstallStep('cover');
     setWidgetCatalogInstallStep('copy');
     setIsAnimatedInstallDialogOpen(true);
@@ -1884,6 +1900,7 @@ function WidgetSelectionGridComponent({
 
   const handleCopy = async () => {
     try {
+      JSON.parse(previewContent);
       await copyText(previewContent, 'preview');
     } catch (error) {
       setExportActionError(getErrorMessage(error, 'The export could not be copied to your clipboard.'));
@@ -1909,9 +1926,10 @@ function WidgetSelectionGridComponent({
 
   const handleDownload = () => {
     try {
+      JSON.parse(previewContent);
       downloadText(
         previewContent,
-        exportMode === 'fusion'
+        exportMode === 'luma' ? 'luma-collections.json' : exportMode === 'fusion'
           ? 'fusion-widgets.json'
           : exportMode === 'aiometadata'
             ? 'aiometadata-selected-catalogs.json'
@@ -1922,7 +1940,7 @@ function WidgetSelectionGridComponent({
     }
   };
 
-  const handleExportModeChange = (mode: 'fusion' | 'omni' | 'aiometadata') => {
+  const handleExportModeChange = (mode: 'luma' | 'fusion' | 'omni' | 'aiometadata') => {
     setExportMode(mode);
     setCopiedAction(null);
   };
@@ -2432,14 +2450,16 @@ function WidgetSelectionGridComponent({
           <div className="space-y-1">
             <DialogTitle className="text-2xl font-black tracking-tight max-sm:text-[1.35rem] truncate w-full">Export JSON</DialogTitle>
             <DialogDescription className="text-xs font-medium leading-relaxed text-muted-foreground/64 max-sm:text-[11px]">
-              Choose a format and export your configuration for Fusion or Omni.
+              {isLuma ? 'Export native Luma collections with complete hub pages, or choose another format.' : 'Choose a format and export your configuration for Fusion or Omni.'}
             </DialogDescription>
           </div>
         </DialogHeader>
 
         <div className="mt-2.5 flex justify-end max-sm:mt-5 max-sm:justify-end w-full">
           <div className="flex flex-wrap sm:w-auto rounded-2xl border border-border/10 bg-muted/20 p-1.5">
+            {isLuma && <button onClick={() => handleExportModeChange('luma')} className={cn('px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all', exportMode === 'luma' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'text-muted-foreground/65 hover:bg-background/40')}>Luma</button>}
             <button
+              hidden={isLuma}
               onClick={() => handleExportModeChange('fusion')}
               className={cn(
                 'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
@@ -2451,6 +2471,7 @@ function WidgetSelectionGridComponent({
               Fusion
             </button>
             <button
+              hidden={isLuma}
               onClick={() => handleExportModeChange('omni')}
               className={cn(
                 'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
@@ -2607,7 +2628,7 @@ function WidgetSelectionGridComponent({
           </div>
         ) : (
           <div className="mt-4 flex-1 min-h-0 flex flex-col">
-            {exportMode === 'fusion' && requiresFusionInvalidCatalogConfirmation && !isFusionInvalidCatalogConfirmed ? (
+            {exportMode === 'luma' && previewContent.startsWith('Error:') ? <div role="alert" className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 text-sm text-destructive"><strong>Export needs attention</strong><p className="mt-2">{previewContent.slice(6)}</p><p className="mt-2 text-muted-foreground">Close this dialog and correct the folder’s catalog settings. Your draft is unchanged.</p></div> : exportMode === 'fusion' && requiresFusionInvalidCatalogConfirmation && !isFusionInvalidCatalogConfirmed ? (
               <div className="relative group flex flex-col flex-1 min-h-0">
                 <div className="flex flex-col items-start justify-start py-6 px-6 max-sm:px-4 rounded-3xl border border-amber-200/50 dark:border-white/5 bg-amber-50/30 dark:bg-zinc-950 shadow-xl shadow-amber-500/5 dark:shadow-black/20 overflow-hidden">
                   <div className="flex items-center space-x-4 mb-4 text-left">
@@ -2670,11 +2691,12 @@ function WidgetSelectionGridComponent({
                       {exportMode} Export Ready
                     </h3>
                     <p className="text-sm font-medium text-muted-foreground/65 leading-relaxed px-4 max-sm:px-2 max-sm:text-[11px]">
-                      Your {exportMode === 'fusion' ? 'Fusion' : 'Omni'} JSON configuration has been generated and is ready for download or copy.
+                      Your {exportMode === 'luma' ? 'Luma' : exportMode === 'fusion' ? 'Fusion' : 'Omni'} JSON configuration has been generated and is ready for download or copy.
                     </p>
                   </div>
                 </div>
 
+                {exportMode === 'luma' && <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left text-xs leading-relaxed"><strong>Import into Luma</strong><p className="mt-2">iOS: Collection Backups → Import. macOS: Collections → Import. Install the add-ons used by your catalogs.</p><p className="mt-2 text-muted-foreground">Hub pages are supported on iOS and macOS. The current tvOS browser still needs nested-page support. A catalog widget exports as a collection with one catalog folder.</p></div>}
                 {exportMode === 'fusion' ? (
                   <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary/80">
@@ -2743,6 +2765,7 @@ function WidgetSelectionGridComponent({
                 variant="secondary"
                 className={cn(editorActionButtonClass, editorFooterSecondaryButtonClass, "max-sm:rounded-[1rem] px-3 sm:px-6 sm:w-52 h-11 text-[13px] font-bold uppercase tracking-wider")}
                 onClick={handleDownload}
+                disabled={previewContent.startsWith('Error:')}
               >
                 <Download className="size-3.5 mr-1.5" />
                 <span className="sm:hidden">Download</span>
@@ -2751,6 +2774,7 @@ function WidgetSelectionGridComponent({
               <Button
                 className={cn(editorActionButtonClass, editorFooterPrimaryButtonClass, "max-sm:rounded-[1rem] px-3 sm:px-6 sm:w-52 h-11 text-[13px] font-bold uppercase tracking-wider")}
                 onClick={() => { void handleCopy(); }}
+                disabled={previewContent.startsWith('Error:')}
               >
                 {copiedAction === 'preview' ? <Check className="size-3.5 mr-1.5" /> : <Copy className="size-3.5 mr-1.5" />}
                 <span className="sm:hidden">{copiedAction === 'preview' ? 'Copied' : 'Copy'}</span>
@@ -2763,6 +2787,7 @@ function WidgetSelectionGridComponent({
                 variant="secondary"
                 className={cn(editorActionButtonClass, editorFooterSecondaryButtonClass, "max-sm:rounded-[1rem] px-3 sm:px-6 sm:w-52 h-11 text-[13px] font-bold uppercase tracking-wider")}
                 onClick={handleDownload}
+                disabled={previewContent.startsWith('Error:')}
               >
                 <Download className="size-3.5 mr-1.5" />
                 <span className="sm:hidden">Download</span>
@@ -2771,6 +2796,7 @@ function WidgetSelectionGridComponent({
               <Button
                 className={cn(editorActionButtonClass, editorFooterPrimaryButtonClass, "max-sm:rounded-[1rem] px-3 sm:px-6 sm:w-52 h-11 text-[13px] font-bold uppercase tracking-wider")}
                 onClick={() => { void handleCopy(); }}
+                disabled={previewContent.startsWith('Error:')}
               >
                 {copiedAction === 'preview' ? <Check className="size-3.5 mr-1.5" /> : <Copy className="size-3.5 mr-1.5" />}
                 <span className="sm:hidden">{copiedAction === 'preview' ? 'Copied' : 'Copy'}</span>
@@ -3092,7 +3118,7 @@ function WidgetSelectionGridComponent({
         <div className="mt-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 max-sm:p-3.5">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary/80 max-sm:text-[9px]">INSTALL NOTE</p>
           <p className="mt-2 text-[12px] leading-relaxed text-foreground/85 max-sm:text-[11.5px]">
-            1. Install the widget.
+            {isLuma ? <>Choose a pack and apply it to your folders. The animation URLs are included in your Luma collections export.</> : <>1. Install the widget.
             {' '}
             2. On your <strong>Apple TV</strong>: Paste the cover URL in
             {' '}
@@ -3101,10 +3127,10 @@ function WidgetSelectionGridComponent({
             and tap
             {' '}
             <code>Add</code>
-            .
+            .</>}
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/75 max-sm:text-[10.5px]">
-            You need both the cover URL and the widget installed for the preview pack to work.
+            {isLuma ? 'Custom videos are preserved. Focus-video playback is currently implemented on tvOS; hub nesting is a separate platform capability.' : 'You need both the cover URL and the widget installed for the preview pack to work.'}
           </p>
         </div>
 
@@ -3321,6 +3347,12 @@ function WidgetSelectionGridComponent({
     if (!activeAnimatedCoverPack) {
       return null;
     }
+    if (isLuma) {
+      const plan = applyAnimatedCovers(widgets, activeAnimatedCoverPack.covers);
+      const packContent = <div className="flex min-h-0 flex-col p-6 sm:p-8"><div className="space-y-3"><p className="text-[10px] font-black uppercase tracking-[.18em] text-primary">Animated covers · Luma</p><h2 className="text-2xl font-black tracking-tight">{activeAnimatedCoverPack.title}</h2><p className="text-sm leading-relaxed text-muted-foreground">Apply animations to matching folder titles, including folders inside hubs. Your catalog settings and custom videos stay intact.</p><div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 text-sm"><strong>{plan.matched} matching folders</strong><p className="mt-1 text-xs text-muted-foreground">{plan.updated} new animations. Included in the normal Luma JSON export; no second cover-pack import is required. Focus-video playback is implemented on tvOS; other platforms retain the artwork and animation fields.</p></div>{coverMessage && <p role="status" className="text-sm text-primary">{coverMessage}</p>}<div className="flex flex-wrap gap-3 pt-3"><Button disabled={!plan.updated} onClick={() => { replaceConfig({ exportType: 'fusionWidgets', exportVersion: 1, widgets: plan.widgets }); setCoverMessage(`${plan.updated} animations applied. Export your widgets as Luma JSON.`); }}>Apply to my folders</Button><Button variant="outline" disabled={!activeAnimatedCoverWidgetBlueprint} onClick={() => { if (!activeAnimatedCoverWidgetBlueprint) return; const prepared = prepareAnimatedWidgetInstall(activeAnimatedCoverWidgetBlueprint); const result = applyAnimatedCovers(prepared.catalogPayload.widgets, activeAnimatedCoverPack.covers); setPackImportJson(JSON.stringify({ exportType: 'fusionWidgets', exportVersion: 1, widgets: result.widgets })); setIsAnimatedInstallDialogOpen(false); setShowImportMergeDialog(true); }}>Add matching widgets…</Button></div><p className="text-xs text-muted-foreground">No matching folders? Add the pack’s widgets through the usual import review, or rename your folders to the cover titles.</p>{!activeAnimatedCoverWidgetBlueprint && <p className="text-xs text-muted-foreground">The matching widget template is unavailable. Applying covers to your existing folders still works.</p>}<Button variant="ghost" className="mt-4 w-full" onClick={() => setIsAnimatedInstallDialogOpen(false)}>Done</Button></div></div>;
+      return isMobile ? <Drawer open={isAnimatedInstallDialogOpen} onOpenChange={setIsAnimatedInstallDialogOpen}><DrawerContent className="max-h-[92dvh] overflow-y-auto bg-background"><DrawerTitle className="sr-only">Install animated covers for Luma</DrawerTitle><DrawerDescription className="sr-only">Apply cover videos to matching folders.</DrawerDescription>{packContent}</DrawerContent></Drawer> : <Dialog open={isAnimatedInstallDialogOpen} onOpenChange={setIsAnimatedInstallDialogOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto rounded-3xl bg-background p-0 sm:max-w-[48rem]"><DialogTitle className="sr-only">Install animated covers for Luma</DialogTitle><DialogDescription className="sr-only">Apply cover videos to matching folders.</DialogDescription>{packContent}</DialogContent></Dialog>;
+    }
+
 
     const widgetInstall = preparedActiveAnimatedWidgetInstall;
     const matchedCoverBackgroundUrls = activeAnimatedCoverWidgetBlueprint?.matchedCoverBackgroundUrls ?? [];
@@ -3615,7 +3647,7 @@ function WidgetSelectionGridComponent({
         <div className="flex flex-wrap items-start justify-between gap-3 max-sm:gap-2">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary/75 max-sm:text-[9px]">Regex Patterns</p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-foreground max-sm:text-[1.45rem]">Fusion Filter Tags</h2>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-foreground max-sm:text-[1.45rem]">{isLuma ? 'Stream Badge Packs' : 'Fusion Filter Tags'}</h2>
           </div>
           <a
             href="https://github.com/nobnobz/Omni-Template-Bot-Bid-Raiser/tree/main/Other"
@@ -3631,11 +3663,11 @@ function WidgetSelectionGridComponent({
         <div className="mt-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 max-sm:p-3.5">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary/80 max-sm:text-[9px]">Install Note</p>
           <p className="mt-2 text-[12px] leading-relaxed text-foreground/85 max-sm:text-[11.5px]">
-            1. Pick one variant and copy its URL.
+            {isLuma ? <>Pick a variant and copy its URL. In Luma, open Badge Packs in the stream/source settings and import the URL. Tags are a separate app preference, so they are not mixed into collection JSON. Up to three pack URLs can be stored; one is active at a time.</> : <>1. Pick one variant and copy its URL.
             {' '}
             2. Paste it in
             {' '}
-            <code>Fusion {'>'} Settings {'>'} Filters {'>'} Import Filters</code>.
+            <code>Fusion {'>'} Settings {'>'} Filters {'>'} Import Filters</code>.</>}
           </p>
         </div>
 
@@ -3834,7 +3866,7 @@ function WidgetSelectionGridComponent({
             In AIOStreams, go to Formatter, tap the import icon, and paste the URL there.
           </p>
           <p className="mt-2 text-[12px] leading-relaxed text-foreground/85 max-sm:text-[11.5px]">
-            In Fusion, go to Settings &gt; Filters &gt; Source Card Fields and disable <strong>Show Title</strong> so you do not see the filename.
+            {isLuma ? <>In Luma’s stream/source settings, disable <strong>Show Stream Titles</strong> if you prefer tags without the filename.</> : <>In Fusion, go to Settings &gt; Filters &gt; Source Card Fields and disable <strong>Show Title</strong> so you do not see the filename.</>}
           </p>
         </div>
 
@@ -3923,10 +3955,10 @@ function WidgetSelectionGridComponent({
       <main className="max-w-5xl mx-auto w-full px-6 max-sm:px-4 py-12 max-sm:py-6 max-sm:pb-[calc(env(safe-area-inset-bottom)+2rem)]">
         <div className="flex flex-col gap-3 mb-10 max-sm:hidden text-center sm:text-left">
           <div className="flex items-center justify-center sm:justify-start max-sm:justify-start">
-            <h1 className="text-4xl max-sm:text-[1.9rem] font-black tracking-tight text-foreground leading-none">Fusion Widget Manager</h1>
+            <h1 className="text-4xl max-sm:text-[1.9rem] font-black tracking-tight text-foreground leading-none">{isLuma ? 'Luma Widget Manager' : 'Fusion Widget Manager'}</h1>
           </div>
           <p className="text-[15px] max-sm:text-[13px] text-muted-foreground/80 font-medium max-w-2xl leading-relaxed max-sm:text-left">
-            Organize and manage your library of Fusion widgets.
+            {isLuma ? 'Organize your Luma widgets, folders and hub pages.' : 'Organize and manage your library of Fusion widgets.'}
           </p>
         </div>
 
@@ -4055,7 +4087,7 @@ function WidgetSelectionGridComponent({
 
                 <Button
                   data-testid="merge-import-button"
-                  onClick={() => setShowImportMergeDialog(true)}
+                  onClick={() => { setPackImportJson(undefined); setShowImportMergeDialog(true); }}
                   variant="secondary"
                   className={cn(editorActionButtonClass, "h-11 max-sm:h-11 px-6 max-sm:px-4 text-[10px] border border-primary/20 bg-primary/10 text-primary transition-all duration-300 hover:bg-primary/20 hover:scale-[1.02] active:scale-[0.98] order-2 flex-1 md:flex-none dark:border-primary/25 dark:bg-primary/12 dark:hover:bg-primary/18")}
                   title="Import JSON"
@@ -4141,7 +4173,9 @@ function WidgetSelectionGridComponent({
       {renderExportDialog()}
       <ImportMergeDialog
         open={showImportMergeDialog}
-        onOpenChange={setShowImportMergeDialog}
+        initialJson={packImportJson}
+        initialFileName={packImportJson ? "Animated cover widgets" : undefined}
+        onOpenChange={open => { setShowImportMergeDialog(open); if (!open) setPackImportJson(undefined); }}
       />
 
       {renderTrashDialog()}

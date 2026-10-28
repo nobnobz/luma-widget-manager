@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, DragEvent, ChangeEvent, useMemo, useEffect, useCallback } from 'react';
+import { normalizeLumaImport } from '@/lib/luma-editor-adapter';
 import { useConfig } from '@/context/ConfigContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -162,9 +163,10 @@ export function ImportMergeDialog({ open, onOpenChange, initialJson, initialFile
 
   const parseAndReview = useCallback((input: string, sourceName?: string) => {
     try {
-      let config = JSON.parse(input);
-      if (config?.includedKeys && config?.values) config = convertOmniToFusion(config);
-      if (isAiometadataImportPayload(config)) config = convertAiometadataImportToFusion(config);
+      if (new TextEncoder().encode(input).length > 4 * 1024 * 1024) throw new Error('The import exceeds 4 MB.');
+      let config = normalizeLumaImport(JSON.parse(input)) as Record<string, unknown>;
+      if (config?.includedKeys && config?.values) config = { ...convertOmniToFusion(config) };
+      if (isAiometadataImportPayload(config)) config = { ...convertAiometadataImportToFusion(config) };
       if (config.exportType !== 'fusionWidgets' || !Array.isArray(config.widgets)) {
         throw new Error('Invalid Fusion JSON format. Missing "exportType": "fusionWidgets" or "widgets" array.');
       }

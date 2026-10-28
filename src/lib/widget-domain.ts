@@ -59,6 +59,7 @@ interface NormalizeOptions {
 }
 
 interface LegacyCollectionItemInput {
+  lumaFolder?: unknown;
   id?: unknown;
   name?: unknown;
   title?: unknown;
@@ -67,6 +68,8 @@ interface LegacyCollectionItemInput {
   imageAspect?: unknown;
   backgroundImageURL?: unknown;
   imageURL?: unknown;
+  animationURL?: unknown;
+  backgroundURL?: unknown;
   dataSources?: unknown;
   dataSource?: unknown;
 }
@@ -351,6 +354,7 @@ function normalizeDataSource(
   return {
     sourceType: 'aiometadata',
     kind: 'addonCatalog',
+    ...(isRecord(source.lumaSource) ? { lumaSource: source.lumaSource as unknown as import('./luma-document').CatalogSource } : {}),
     payload: {
       addonId: normalizedAddonId,
       catalogId: normalizeCatalogId(catalogId, finalType),
@@ -383,7 +387,7 @@ function normalizeCollectionItem(
       )
       .filter((entry): entry is WidgetDataSource => entry !== null);
 
-    if (options.allowPartialImport && dataSources.length === 0) {
+    if (options.allowPartialImport && dataSources.length === 0 && !isRecord(item.lumaFolder)) {
       const unsupportedKinds = Array.from(
         new Set(
           localIssues
@@ -419,6 +423,7 @@ function normalizeCollectionItem(
     return {
       id: asOptionalString(item.id) || crypto.randomUUID(),
       name: itemLabel,
+      ...(isRecord(item.lumaFolder) ? { lumaFolder: item.lumaFolder as unknown as import('./luma-document').Folder } : (item.animationURL || item.backgroundURL) ? { lumaFolder: { id: asOptionalString(item.id) || crypto.randomUUID(), title: itemLabel, focusVideoUrl: asOptionalString(item.animationURL), focusGifEnabled: !!item.animationURL, heroBackdropUrl: asOptionalString(item.backgroundURL) } } : {}),
       hideTitle: asBoolean(item.hideTitle),
       layout: toLayout(item.layout ?? item.imageAspect),
       backgroundImageURL:
@@ -483,6 +488,7 @@ function normalizeWidget(input: unknown, index: number, options: NormalizeOption
         title,
         hideTitle,
         type,
+        ...(isRecord(widget.lumaHub) ? { lumaHub: widget.lumaHub as unknown as import('./luma-document').Hub } : {}),
         dataSource: {
           kind: 'collection',
           payload: {

@@ -38,12 +38,14 @@ export const CollectionRowEditor = memo(function CollectionRowEditor({
   onDelete?: (e: React.MouseEvent) => void 
 }) {
   const {
+    isLuma,
     addCollectionItem,
     reorderCollectionItems,
     removeCollectionItem,
     updateCollectionItem,
     updateWidgetMeta,
   } = useConfig();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<'none' | 'asc' | 'desc'>('none');
   const [manualOrder, setManualOrder] = useState<CollectionItem[] | null>(null);
@@ -155,7 +157,7 @@ export const CollectionRowEditor = memo(function CollectionRowEditor({
                     className="group h-9 flex-1 rounded-full border border-primary/20 bg-primary/10 px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary transition-all duration-300 hover:bg-primary/[0.18] hover:text-primary hover:scale-[1.02] active:scale-[0.98] dark:border-primary/25 dark:bg-primary/12 dark:hover:bg-primary/[0.18] sm:flex-none"
                   >
                     <Plus className="size-3.5 mr-2 transition-colors group-hover:text-primary" /> 
-                    Add Item
+                    {isLuma ? 'Add Folder' : 'Add Item'}
                   </Button>
                 }
               />
@@ -204,6 +206,7 @@ export const CollectionRowEditor = memo(function CollectionRowEditor({
           </div>
         </div>
 
+        {isLuma && <div className="rounded-2xl border border-border/50 bg-background/50 px-4 py-3"><button type="button" className="flex w-full items-center justify-between text-left text-xs font-bold text-muted-foreground" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)}>Collection settings<span className="text-primary">{settingsOpen ? 'Close' : 'Edit'}</span></button>{settingsOpen && <div className="mt-4 flex flex-wrap items-center gap-5 text-xs"><label className="flex items-center gap-2">Folder view<select aria-label="Collection folder view" className="h-9 rounded-xl border border-border/60 bg-background px-3" value={widget.lumaHub?.viewMode ?? 'ROWS'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, viewMode: e.target.value } })}><option value="ROWS">Rows</option><option value="TABBED_GRID">Tabs &amp; grid</option><option value="FOLLOW_LAYOUT">Follow layout</option></select></label>{(['pinToTop','showAllTab'] as const).map(key => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={(widget.lumaHub?.[key] as boolean | undefined) ?? key === 'showAllTab'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, [key]: e.target.checked } })} />{key === 'pinToTop' ? 'Pin to top' : 'Show All tab'}</label>)}</div>}</div>}
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}

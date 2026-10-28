@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useMemo, useRef, useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LumaFolderPageEditor } from './LumaFolderPageEditor';
 import { DataSourceEditor } from './DataSourceEditor';
 import { CatalogCombobox } from './CatalogCombobox';
 import { MANIFEST_PLACEHOLDER, resolveFusionCatalogType } from '@/lib/config-utils';
@@ -127,16 +128,18 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
   onUpdate,
   onDelete,
   isExpanded,
-  onToggleExpand
+  onToggleExpand,
+  depth = 1,
 }: {
   item: CollectionItem,
+  depth?: number,
   index: number,
   onUpdate: (updates: Partial<CollectionItem>) => void,
   onDelete: () => void,
   isExpanded: boolean,
   onToggleExpand: () => void
 }) {
-  const { manifestCatalogs } = useConfig();
+  const { manifestCatalogs, isLuma } = useConfig();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [showNativeTraktDeleteConfirm, setShowNativeTraktDeleteConfirm] = useState(false);
@@ -418,6 +421,8 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                         onUpdate={(updates) => handleUpdateDataSource(dsIndex, updates)}
                         onDelete={() => handleDeleteDataSource(dsIndex)}
                       />
+                      {isLuma && <details className="mx-1 mt-2 rounded-xl border border-border/40 bg-background/40 p-3"><summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Luma catalog options</summary><div className="mt-3 grid gap-3 sm:grid-cols-2">{(['title','genre'] as const).map(key => <label key={key} className="space-y-1 text-[11px] text-muted-foreground"><span>{key === 'title' ? 'Row title' : 'Genre'}</span><Input aria-label={`Catalog ${key}`} value={String(ds.lumaSource?.[key] ?? '')} onChange={e => onUpdate({ dataSources: item.dataSources.map((source, i) => i === dsIndex ? { ...ds, lumaSource: { provider: 'addon', ...ds.lumaSource, [key]: e.target.value } } : source) })} /></label>)}<label className="space-y-1 text-[11px] text-muted-foreground"><span>Release filter</span><select aria-label="Catalog release filter" value={String(ds.lumaSource?.releaseFilter ?? 'all')} onChange={e => onUpdate({ dataSources: item.dataSources.map((source, i) => i === dsIndex ? { ...ds, lumaSource: { provider: 'addon', ...ds.lumaSource, releaseFilter: e.target.value } } : source) })} className="h-10 w-full rounded-xl border border-border bg-background px-3"><option value="all">All</option><option value="released">Released</option><option value="digital_released">Available</option><option value="upcoming">Upcoming</option></select></label><label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={ds.lumaSource?.homeEnabled !== false} onChange={e => onUpdate({ dataSources: item.dataSources.map((source, i) => i === dsIndex ? { ...ds, lumaSource: { provider: 'addon', ...ds.lumaSource, homeEnabled: e.target.checked } } : source) })} />Enabled</label></div></details>}
+
                     </SortableDataSourceRow>
                   );
                 }
@@ -832,6 +837,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                         </div>
                       </div>
                     </div>
+                    {isLuma && <LumaFolderPageEditor item={item} onUpdate={onUpdate} depth={depth} />}
                   </div>
                 </motion.div>
               )}

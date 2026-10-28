@@ -1,3 +1,4 @@
+import type { CatalogSource, Folder, Hub } from '../luma-document';
 export type WidgetType = 'collection.row' | 'row.classic';
 export type SourceType = 'aiometadata' | 'trakt-native' | 'anilist-native';
 
@@ -60,6 +61,7 @@ export interface AiometadataCatalogsOnlyExport {
 }
 
 export interface AIOMetadataDataSource {
+  lumaSource?: CatalogSource;
   sourceType: 'aiometadata';
   kind: 'addonCatalog';
   payload: AddonCatalogPayload;
@@ -81,6 +83,7 @@ export type AddonCatalogDataSource = AIOMetadataDataSource;
 export type WidgetDataSource = AIOMetadataDataSource | NativeTraktDataSource | NativeAnilistDataSource;
 
 export interface CollectionItem {
+  lumaFolder?: Folder;
   id: string;
   name: string;
   hideTitle: boolean;
@@ -107,6 +110,7 @@ export interface Presentation {
 }
 
 export interface BaseWidget {
+  lumaHub?: Hub;
   id: string;
   title: string;
   hideTitle?: boolean;

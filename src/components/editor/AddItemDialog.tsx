@@ -27,6 +27,7 @@ import {
   editorFooterSecondaryButtonClass,
   editorFormSurfaceClass,
 } from './editorSurfaceStyles';
+import { useConfig } from '@/context/ConfigContext';
 import { useMobile } from '@/hooks/use-mobile';
 
 interface AddItemDialogProps {
@@ -36,12 +37,13 @@ interface AddItemDialogProps {
 
 export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
   const isMobile = useMobile();
+  const { isLuma } = useConfig();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [backgroundImageURL, setBackgroundImageURL] = useState('');
   const backgroundImageUrlInputRef = useRef<HTMLInputElement | null>(null);
   const [layout, setLayout] = useState<'Wide' | 'Poster' | 'Square'>('Wide');
-  const [dataSources, setDataSources] = useState<AIOMetadataDataSource[]>([
+  const [dataSources, setDataSources] = useState<AIOMetadataDataSource[]>(isLuma ? [] : [
     {
       sourceType: 'aiometadata',
       kind: 'addonCatalog',
@@ -58,7 +60,8 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
       hideTitle: false,
       layout: layout,
       backgroundImageURL: backgroundImageURL.trim(),
-      dataSources: dataSources
+      dataSources: dataSources,
+      ...(isLuma ? { lumaFolder: { id: '', title: name.trim(), sources: [] } } : {}),
     };
     
     onAdd(newItem);
@@ -66,7 +69,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
     setName('');
     setBackgroundImageURL('');
     setLayout('Wide');
-    setDataSources([
+    setDataSources(isLuma ? [] : [
       {
         sourceType: 'aiometadata',
         kind: 'addonCatalog',
@@ -91,9 +94,9 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
             <Plus className="size-7 max-sm:size-5" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">Add New Item</h2>
+            <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">{isLuma ? 'Add New Folder' : 'Add New Item'}</h2>
             <p className="max-w-[360px] text-xs font-medium leading-relaxed text-muted-foreground/64 max-sm:max-w-none max-sm:text-[11px]">
-              Configure a new entry for your collection.
+              {isLuma ? 'Create a catalog folder, or leave catalogs empty to build a hub page.' : 'Configure a new entry for your collection.'}
             </p>
           </div>
         </header>

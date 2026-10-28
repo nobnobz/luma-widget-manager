@@ -30,7 +30,7 @@ interface NewWidgetDialogProps {
 
 export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDialogProps) {
   const isMobile = useMobile();
-  const { addWidget } = useConfig();
+  const { addWidget, isLuma } = useConfig();
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'collection.row' | 'row.classic'>('collection.row');
 
@@ -80,7 +80,7 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
           <div className="space-y-1.5">
             <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">Add New Widget</h2>
             <p className="max-w-[360px] text-xs font-medium leading-relaxed text-muted-foreground/64 max-sm:max-w-none max-sm:text-[11px]">
-              Add a new widget to organize your Fusion content.
+              {isLuma ? 'Create a collection of folder cards or a catalog widget for Luma.' : 'Add a new widget to organize your Fusion content.'}
             </p>
           </div>
         </header>
