@@ -20,6 +20,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { MANIFEST_PLACEHOLDER } from '@/lib/config-utils';
 import { Widget } from '@/lib/types/widget';
 import { editorActionButtonClass, editorFormSurfaceClass } from './editorSurfaceStyles';
+import { rowTypeLabel } from '@/lib/editor-labels';
 import { useMobile } from '@/hooks/use-mobile';
 
 interface NewWidgetDialogProps {
@@ -78,21 +79,21 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
             <Sparkles className="size-7 max-sm:size-[1.375rem]" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">Add New Widget</h2>
-            <p className="max-w-[360px] text-xs font-medium leading-relaxed text-muted-foreground/64 max-sm:max-w-none max-sm:text-[11px]">
-              {isLuma ? 'Create a collection of folder cards or a catalog widget for Luma.' : 'Add a new widget to organize your Fusion content.'}
+            <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">{isLuma ? 'Add Home row' : 'Add New Widget'}</h2>
+            <p className="max-w-[360px] text-xs font-medium leading-relaxed text-muted-foreground max-sm:max-w-none max-sm:text-[11px]">
+              {isLuma ? 'Choose what this row should show on your Luma Home screen.' : 'Add a new widget to organize your Fusion content.'}
             </p>
           </div>
         </header>
 
         <div className="space-y-7 py-7 max-sm:space-y-5 max-sm:py-5">
           <div className="space-y-2.5">
-            <Label htmlFor="widget-title" className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">Widget Title</Label>
+            <Label htmlFor="widget-title" className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">{isLuma ? 'Row title' : 'Widget Title'}</Label>
             <div className={cn(editorFormSurfaceClass, "relative group p-1 transition-all focus-within:border-primary/30 dark:focus-within:border-primary/28")}>
               <Input
                 data-testid="new-widget-title-input"
                 id="widget-title"
-                placeholder="e.g. Recommended for You"
+                placeholder={isLuma ? (type === 'collection.row' ? 'e.g. Genres or Streaming Services' : 'e.g. Trending Movies') : 'e.g. Recommended for You'}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="h-11 bg-transparent border-none px-4 text-base font-semibold text-foreground/85 transition-all focus-visible:ring-0 sm:text-sm"
@@ -103,11 +104,12 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
           </div>
 
           <div className="space-y-2.5">
-            <Label className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">Widget Type</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <Label className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">{isLuma ? 'What should this row show?' : 'Widget Type'}</Label>
+            <div role="group" aria-label={isLuma ? "Row type" : "Widget type"} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={() => setType('collection.row')}
+                aria-pressed={type === 'collection.row'}
                 className={cn(
                   "group/btn relative flex min-h-[132px] flex-col items-start gap-3 overflow-hidden rounded-2xl border p-4 transition-all sm:min-h-[156px] sm:p-5",
                   type === 'collection.row'
@@ -122,8 +124,8 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
                   <Box className="size-5" />
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-bold">Collection</p>
-                  <p className="mt-1 text-[11px] font-medium leading-tight text-muted-foreground/62">Add a collection with different catalogs and custom images.</p>
+                  <p className="text-sm font-bold">{rowTypeLabel('collection.row', isLuma)}</p>
+                  <p className="mt-1 text-[11px] font-medium leading-tight text-muted-foreground">{isLuma ? 'Folder cards, such as Action, Comedy and Drama. Each folder opens a catalog or a hub.' : 'Add a collection with different catalogs and custom images.'}</p>
                 </div>
                 {type === 'collection.row' && (
                   <div className="absolute right-4 top-4 animate-in fade-in zoom-in">
@@ -135,6 +137,7 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
               <button
                 type="button"
                 onClick={() => setType('row.classic')}
+                aria-pressed={type === 'row.classic'}
                 className={cn(
                   "group/btn relative flex min-h-[132px] flex-col items-start gap-3 overflow-hidden rounded-2xl border p-4 transition-all sm:min-h-[156px] sm:p-5",
                   type === 'row.classic'
@@ -149,8 +152,8 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
                   <Layers className="size-5" />
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-bold">Classic Row</p>
-                  <p className="mt-1 text-[11px] font-medium leading-tight text-muted-foreground/62">Show a single catalog on your homescreen.</p>
+                  <p className="text-sm font-bold">{rowTypeLabel('row.classic', isLuma)}</p>
+                  <p className="mt-1 text-[11px] font-medium leading-tight text-muted-foreground">{isLuma ? 'Movie or series posters from one catalog, shown directly on Home.' : 'Show a single catalog on your homescreen.'}</p>
                 </div>
                 {type === 'row.classic' && (
                   <div className="absolute right-4 top-4 animate-in fade-in zoom-in">
@@ -177,7 +180,7 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
             disabled={!title.trim()}
             className={cn(editorActionButtonClass, "h-11 w-full text-xs sm:h-12 sm:flex-1")}
           >
-            Add Widget
+            {isLuma ? `Add ${rowTypeLabel(type, true).toLowerCase()}` : 'Add Widget'}
           </Button>
         </footer>
       </div>
@@ -188,7 +191,7 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
     return (
       <Drawer open={isOpen} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[94dvh] border-border/40 bg-background rounded-t-[2.5rem]">
-          <DrawerTitle className="sr-only">Add New Widget</DrawerTitle>
+          <DrawerTitle className="sr-only">{isLuma ? 'Add Home row' : 'Add New Widget'}</DrawerTitle>
           {Content}
         </DrawerContent>
       </Drawer>
@@ -198,7 +201,7 @@ export function NewWidgetDialog({ isOpen, onOpenChange, onCreated }: NewWidgetDi
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] rounded-3xl border border-zinc-200/80 bg-zinc-50/96 p-0 overflow-hidden backdrop-blur-2xl dark:border-white/12 dark:bg-zinc-950/93">
-        <DialogTitle className="sr-only">Add New Widget</DialogTitle>
+        <DialogTitle className="sr-only">{isLuma ? 'Add Home row' : 'Add New Widget'}</DialogTitle>
         {Content}
       </DialogContent>
     </Dialog>

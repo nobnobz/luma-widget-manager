@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyAnimatedCovers, assertLegacyExportCompatible, cloneFolder, documentToEditor, editorToDocument, exportEditorForLuma, folderToItem, itemToDraftFolder } from './luma-editor-adapter';
+import { applyAnimatedCovers, buildLumaExportParts, assertLegacyExportCompatible, cloneFolder, documentToEditor, editorToDocument, exportEditorForLuma, folderToItem, itemToDraftFolder } from './luma-editor-adapter';
 import { starterDocument } from './luma-document';
 import { normalizeFusionConfigDetailed, normalizeLoadedState } from './widget-domain';
 import { applyImportReview, buildImportReviewState, getImportItemSelectionKey } from './import-merge';
@@ -60,4 +60,36 @@ test('incomplete catalogs block native export instead of disappearing', () => {
   if (source.kind !== 'addonCatalog') throw new Error('Expected catalog');
   source.payload.catalogId = 'popular';
   assert.equal(JSON.parse(exportEditorForLuma(config.widgets))[0].folders[0].sources[0].addonId, 'preset:aiometadata');
+});
+
+function catalogRow(id = 'trending', catalogId = 'popular') {
+  return { id, title: id, type: 'row.classic' as const, cacheTTL: 1800, limit: 20, presentation: { aspectRatio: 'poster' as const, cardStyle: 'medium' as const, badges: { providers: false, ratings: true } }, dataSource: { kind: 'addonCatalog' as const, sourceType: 'aiometadata' as const, payload: { addonId: 'https://example.com/manifest.json', catalogType: 'movie', catalogId } } };
+}
+test('mixed layouts export real poster rows separately from lossless nested folder rows', () => {
+  const config = documentToEditor(starterDocument());
+  config.widgets.push(catalogRow());
+  const parts = buildLumaExportParts(config.widgets, 'https://example.com/manifest.json');
+  assert.equal(parts.length, 2);
+  const folders = JSON.parse(parts[0].text), catalogs = JSON.parse(parts[1].text);
+  assert.equal(folders[0].folders[0].sections[0].folders[0].subfolders[0].title, 'Science fiction');
+  assert.equal(catalogs.exportType, 'fusionWidgets');
+  assert.equal(catalogs.widgets[0].type, 'row.classic');
+  assert.equal(catalogs.widgets[0].dataSource.payload.catalogId, 'popular');
+  assert.deepEqual(catalogs.requiredAddons, ['preset:aiometadata']);
+  assert.equal(parts[1].filename, 'luma-catalog-rows.json');
+  assert.throws(() => exportEditorForLuma(config.widgets), /catalog-row export/);
+});
+test('invalid catalog rows do not block the independent folder export', () => {
+  const widgets = documentToEditor(starterDocument()).widgets;
+  widgets.push(catalogRow('empty', ''));
+  const parts = buildLumaExportParts(widgets);
+  assert.ok(parts[0].text); assert.equal(parts[0].error, undefined);
+  assert.match(parts[1].error!, /incomplete/); assert.equal(parts[1].text, '');
+});
+test('catalog export rejects duplicate routes and native options rather than losing behavior', () => {
+  assert.match(buildLumaExportParts([catalogRow('one'), catalogRow('two')])[0].error!, /repeats a catalog/);
+  const row = { ...catalogRow(), dataSource: { ...catalogRow().dataSource, lumaSource: { provider: 'addon', genre: 'Comedy' } } };
+  assert.match(buildLumaExportParts([row])[0].error!, /cannot preserve/);
+  const invalid = catalogRow(); invalid.dataSource.payload.addonId = 'org.example';
+  assert.match(buildLumaExportParts([invalid])[0].error!, /manifest URL/);
 });

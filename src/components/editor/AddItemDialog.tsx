@@ -102,11 +102,11 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
         
         <div className="space-y-5 py-7 max-sm:space-y-4 max-sm:py-5">
           <div className="space-y-2.5">
-            <Label htmlFor="item-title" className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">Item Title</Label>
+            <Label htmlFor="item-title" className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">{isLuma ? 'Folder title' : 'Item Title'}</Label>
             <div className={cn(editorFormSurfaceClass, "relative group p-1 transition-all focus-within:border-primary/30")}>
               <Input
                 id="item-title"
-                placeholder="e.g. Inception"
+                placeholder={isLuma ? "e.g. Action or Netflix" : "e.g. Inception"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="h-11 bg-transparent border-none rounded-xl px-4 text-base font-semibold text-foreground/85 focus-visible:ring-0 sm:text-sm"
@@ -117,7 +117,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
           </div>
 
           <div className="space-y-2.5">
-            <Label htmlFor="item-url" className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">Image URL</Label>
+            <Label htmlFor="item-url" className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">{isLuma ? 'Cover image URL (optional)' : 'Image URL'}</Label>
             <div className={cn(editorFormSurfaceClass, "relative group p-1 transition-all focus-within:border-primary/30")}>
               <Input
                 id="item-url"
@@ -141,7 +141,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
           </div>
           
           <div className="space-y-3">
-            <Label className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">Aspect Ratio</Label>
+            <Label className="ml-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">{isLuma ? 'Folder card shape' : 'Aspect Ratio'}</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { id: 'Wide', label: 'Wide', icon: RectangleHorizontal },
@@ -168,7 +168,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
           <div className="space-y-2 pt-4 border-t border-border/70 dark:border-white/8">
             <div className="mb-1 flex items-center justify-between">
               <Label className="ml-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">
-                <Layers className="size-3" /> Data Source
+                <Layers className="size-3" /> {isLuma ? 'Catalog (optional)' : 'Data Source'}
               </Label>
             </div>
             {primarySource ? (
@@ -177,7 +177,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
                 onUpdate={(updates) => setDataSources(current => current[0]
                   ? [{ ...current[0], payload: { ...current[0].payload, ...updates } }]
                   : current)}
-                onDelete={() => { if (isLuma) setDataSources([]); }}
+                onDelete={isLuma ? () => setDataSources([]) : undefined}
               />
             ) : (
               <div className="space-y-3 rounded-2xl border border-dashed border-border/60 bg-background/40 p-4">

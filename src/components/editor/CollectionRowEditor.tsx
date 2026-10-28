@@ -137,7 +137,7 @@ export const CollectionRowEditor = memo(function CollectionRowEditor({
             <div className="flex items-center justify-between gap-3 sm:justify-start">
               <div className="hidden min-w-0 items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-50/80 px-3.5 h-9 dark:border-white/8 dark:bg-white/[0.04] sm:inline-flex">
                 <ListTree className="size-3.5 text-muted-foreground/50" />
-                <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground/58">Items</span>
+                <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground/58">{isLuma ? 'Folders in this Home row' : 'Items'}</span>
               </div>
 
               {searchQuery && (
@@ -206,7 +206,18 @@ export const CollectionRowEditor = memo(function CollectionRowEditor({
           </div>
         </div>
 
-        {isLuma && <div className="rounded-2xl border border-border/50 bg-background/50 px-4 py-3"><button type="button" className="flex w-full items-center justify-between text-left text-xs font-bold text-muted-foreground" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)}>Collection settings<span className="text-primary">{settingsOpen ? 'Close' : 'Edit'}</span></button>{settingsOpen && <div className="mt-4 flex flex-wrap items-center gap-5 text-xs"><label className="flex items-center gap-2">Folder view<select aria-label="Collection folder view" className="h-9 rounded-xl border border-border/60 bg-background px-3" value={widget.lumaHub?.viewMode ?? 'ROWS'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, viewMode: e.target.value } })}><option value="ROWS">Rows</option><option value="TABBED_GRID">Tabs &amp; grid</option><option value="FOLLOW_LAYOUT">Follow layout</option></select></label>{(['pinToTop','showAllTab'] as const).map(key => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={(widget.lumaHub?.[key] as boolean | undefined) ?? key === 'showAllTab'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, [key]: e.target.checked } })} />{key === 'pinToTop' ? 'Pin to top' : 'Show All tab'}</label>)}</div>}</div>}
+        {isLuma && <div className="rounded-2xl border border-border/50 bg-background/50 px-4 py-3">
+          <button type="button" className="flex w-full items-center justify-between text-left text-xs font-bold text-muted-foreground" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)}>Folder row settings<span className="text-primary">{settingsOpen ? 'Close' : 'Edit'}</span></button>
+          {settingsOpen && <div className="mt-4 space-y-4">
+            <p className="text-xs leading-relaxed text-muted-foreground">This Home row always shows folder cards. The view below controls what you see after opening a folder with multiple catalogs.</p>
+            <label className="flex flex-wrap items-center gap-3 text-xs">View inside folders
+              <select aria-label="View inside folders" className="h-9 rounded-xl border border-border/60 bg-background px-3" value={widget.lumaHub?.viewMode ?? 'ROWS'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, viewMode: e.target.value } })}>
+                <option value="ROWS">One row per catalog</option><option value="TABBED_GRID">Catalog tabs and poster grid</option><option value="FOLLOW_LAYOUT">Use Luma’s layout</option>
+              </select>
+            </label>
+            <div className="flex flex-wrap gap-5 text-xs">{(['pinToTop','showAllTab'] as const).map(key => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={(widget.lumaHub?.[key] as boolean | undefined) ?? key === 'showAllTab'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, [key]: e.target.checked } })} />{key === 'pinToTop' ? 'Keep this row at the top of Home' : 'Add an All tab for combined catalog results'}</label>)}</div>
+          </div>}
+        </div>}
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -233,12 +244,12 @@ export const CollectionRowEditor = memo(function CollectionRowEditor({
             {widget.dataSource.payload.items.length === 0 && (
               <div className="py-12 max-sm:py-10 border-2 border-dashed rounded-2xl max-sm:rounded-[1.15rem] flex flex-col items-center justify-center text-muted-foreground/30 bg-muted/10 border-border">
                 <Layers className="size-10 mb-4 opacity-20" />
-                <p className="text-sm font-medium opacity-60 mb-6">This collection has no items yet</p>
+                <p className="text-sm font-medium opacity-60 mb-6">{isLuma ? 'This Home row has no folders yet' : 'This collection has no items yet'}</p>
                 <AddItemDialog 
                   onAdd={handleAddItem} 
                   trigger={
                     <Button variant="outline" size="sm" className="h-9 rounded-[1rem] font-bold px-6 text-[10px] uppercase tracking-wider border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 transition-all dark:border-primary/25 dark:bg-primary/12 dark:hover:bg-primary/18">
-                      <Plus className="size-3.5 mr-2" /> Add first item
+                      <Plus className="size-3.5 mr-2" /> {isLuma ? 'Add first folder' : 'Add first item'}
                     </Button>
                   }
                 />

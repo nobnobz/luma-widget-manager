@@ -2,7 +2,8 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import Image from 'next/image';
-import { applyAnimatedCovers, exportEditorForLuma } from '@/lib/luma-editor-adapter';
+import { rowTypeLabel } from '@/lib/editor-labels';
+import { applyAnimatedCovers, buildLumaExportParts } from '@/lib/luma-editor-adapter';
 import { useConfig } from '@/context/ConfigContext';
 import { SortableWidget } from './SortableWidget';
 import { Button } from '@/components/ui/button';
@@ -315,6 +316,9 @@ function WidgetSelectionGridComponent({
     emptyTrash,
   } = useConfig();
   const [exportMode, setExportMode] = useState<'luma' | 'fusion' | 'omni' | 'aiometadata'>(isLuma ? 'luma' : 'fusion');
+  const [lumaPart, setLumaPart] = useState<'folders' | 'catalogs'>('folders');
+  const lumaExportParts = useMemo(() => buildLumaExportParts(widgets, manifestUrl), [widgets, manifestUrl]);
+  const activeLumaExport = lumaExportParts.find(part => part.id === lumaPart) ?? lumaExportParts[0];
   const [searchQuery, setSearchQuery] = useState('');
   const [animatedCoverPacks, setAnimatedCoverPacks] = useState<AnimatedCoverPack[]>([]);
   const [selectedAnimatedCoverPackSlug, setSelectedAnimatedCoverPackSlug] = useState<string>('');
@@ -1226,7 +1230,7 @@ function WidgetSelectionGridComponent({
   const previewContent = useMemo(() => {
     if (!showPreview) return '';
     if (exportMode === 'luma') {
-      try { return exportEditorForLuma(widgets, manifestUrl); } catch (error) { return `Error: ${error instanceof Error ? error.message : 'Export failed.'}`; }
+      return activeLumaExport ? (activeLumaExport.error ? `Error: ${activeLumaExport.error}` : activeLumaExport.text) : 'Error: Add a Home row before exporting.';
     }
 
     if (exportMode === 'fusion' && requiresFusionInvalidCatalogConfirmation && !isFusionInvalidCatalogConfirmed) {
@@ -1322,8 +1326,7 @@ function WidgetSelectionGridComponent({
       return `Error: ${error instanceof Error ? error.message : 'Export failed.'}`;
     }
   }, [
-    widgets,
-    manifestUrl,
+    activeLumaExport,
     aiometadataPreviewExport,
     basePreviewState.error,
     exportMode,
@@ -1929,7 +1932,7 @@ function WidgetSelectionGridComponent({
       JSON.parse(previewContent);
       downloadText(
         previewContent,
-        exportMode === 'luma' ? 'luma-collections.json' : exportMode === 'fusion'
+        exportMode === 'luma' ? (activeLumaExport?.filename ?? 'luma-collections.json') : exportMode === 'fusion'
           ? 'fusion-widgets.json'
           : exportMode === 'aiometadata'
             ? 'aiometadata-selected-catalogs.json'
@@ -2109,7 +2112,7 @@ function WidgetSelectionGridComponent({
                   {widget.widgetTitle}
                 </p>
                 <span className="text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/50">
-                  {widget.widgetType === 'collection.row' ? 'Collection' : 'Classic Row'}
+                  {rowTypeLabel(widget.widgetType, isLuma)}
                 </span>
               </button>
             </div>
@@ -2450,10 +2453,12 @@ function WidgetSelectionGridComponent({
           <div className="space-y-1">
             <DialogTitle className="text-2xl font-black tracking-tight max-sm:text-[1.35rem] truncate w-full">Export JSON</DialogTitle>
             <DialogDescription className="text-xs font-medium leading-relaxed text-muted-foreground/64 max-sm:text-[11px]">
-              {isLuma ? 'Export native Luma collections with complete hub pages, or choose another format.' : 'Choose a format and export your configuration for Fusion or Omni.'}
+              {isLuma ? 'Export your Home rows and complete hub pages for Luma.' : 'Choose a format and export your configuration for Fusion or Omni.'}
             </DialogDescription>
           </div>
         </DialogHeader>
+
+        {exportMode === 'luma' && lumaExportParts.length > 1 && <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-3 text-sm"><p>Luma imports folder rows and catalog rows separately. Download both files, then arrange their order in Luma.</p><div role="group" aria-label="Rows to export" className="flex flex-wrap gap-2">{lumaExportParts.map(part => <Button key={part.id} variant={activeLumaExport?.id === part.id ? 'default' : 'outline'} aria-pressed={activeLumaExport?.id === part.id} onClick={() => { setLumaPart(part.id); setExportActionError(null); }}>{part.label} ({part.count})</Button>)}</div></div>}
 
         <div className="mt-2.5 flex justify-end max-sm:mt-5 max-sm:justify-end w-full">
           <div className="flex flex-wrap sm:w-auto rounded-2xl border border-border/10 bg-muted/20 p-1.5">
@@ -2628,7 +2633,7 @@ function WidgetSelectionGridComponent({
           </div>
         ) : (
           <div className="mt-4 flex-1 min-h-0 flex flex-col">
-            {exportMode === 'luma' && previewContent.startsWith('Error:') ? <div role="alert" className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 text-sm text-destructive"><strong>Export needs attention</strong><p className="mt-2">{previewContent.slice(6)}</p><p className="mt-2 text-muted-foreground">Close this dialog and correct the folder’s catalog settings. Your draft is unchanged.</p></div> : exportMode === 'fusion' && requiresFusionInvalidCatalogConfirmation && !isFusionInvalidCatalogConfirmed ? (
+            {exportMode === 'luma' && previewContent.startsWith('Error:') ? <div role="alert" className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 text-sm text-destructive"><strong>Export needs attention</strong><p className="mt-2">{previewContent.slice(6)}</p><p className="mt-2 text-muted-foreground">Close this dialog and correct the catalog settings shown above. Your draft is saved.</p></div> : exportMode === 'fusion' && requiresFusionInvalidCatalogConfirmation && !isFusionInvalidCatalogConfirmed ? (
               <div className="relative group flex flex-col flex-1 min-h-0">
                 <div className="flex flex-col items-start justify-start py-6 px-6 max-sm:px-4 rounded-3xl border border-amber-200/50 dark:border-white/5 bg-amber-50/30 dark:bg-zinc-950 shadow-xl shadow-amber-500/5 dark:shadow-black/20 overflow-hidden">
                   <div className="flex items-center space-x-4 mb-4 text-left">
@@ -2696,7 +2701,7 @@ function WidgetSelectionGridComponent({
                   </div>
                 </div>
 
-                {exportMode === 'luma' && <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left text-xs leading-relaxed"><strong>Import into Luma</strong><p className="mt-2">iOS: Collection Backups → Import. macOS: Collections → Import. Install the add-ons used by your catalogs.</p><p className="mt-2 text-muted-foreground">Hub pages are supported on iOS and macOS. The current tvOS browser still needs nested-page support. A catalog widget exports as a collection with one catalog folder.</p></div>}
+                {exportMode === 'luma' && <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left text-xs leading-relaxed"><strong>Import into Luma · {activeLumaExport?.label}</strong>{activeLumaExport?.id === 'catalogs' ? <p className="mt-2">Import this file using Luma’s Fusion import. These catalogs appear directly as poster rows on Home. Install or connect the add-ons used by your catalogs.</p> : <><p className="mt-2">iOS: Collection Backups → Import. macOS: Collections → Import. Install the add-ons used by your catalogs.</p><p className="mt-2 text-muted-foreground">Hub pages work on iOS and macOS. The current tvOS browser still needs nested-page support.</p></>}</div>}
                 {exportMode === 'fusion' ? (
                   <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary/80">
@@ -2712,8 +2717,8 @@ function WidgetSelectionGridComponent({
 
                 <ExportPreview
                   title={exportMode === 'omni' && requiresTraktBridgeImport && !isBridgeConfirmed ? "Omni Actions Required" : "JSON Preview"}
-                  count={exportMode === 'fusion' ? widgets.length : widgets.length} 
-                  countLabel={exportMode === 'fusion' ? 'widgets' : 'groups'}
+                  count={exportMode === 'luma' ? activeLumaExport?.count ?? 0 : widgets.length}
+                  countLabel={exportMode === 'luma' ? 'rows' : exportMode === 'fusion' ? 'widgets' : 'groups'}
                   content={previewContent}
                 />
               </div>
@@ -4058,7 +4063,7 @@ function WidgetSelectionGridComponent({
                 <Search className="pointer-events-none absolute left-5 max-sm:left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
                 <Input
                   data-testid="widget-search"
-                  placeholder="Search for widgets..."
+                  placeholder={isLuma ? "Search rows and folders..." : "Search for widgets..."}
                   className="w-full h-11 max-sm:h-10 pl-11 max-sm:pl-9 pr-10 rounded-xl border-none bg-transparent shadow-none focus-visible:ring-0 text-base sm:text-[13px] font-medium tracking-tight placeholder:text-muted-foreground/40"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
@@ -4082,7 +4087,7 @@ function WidgetSelectionGridComponent({
                 >
                   <Plus className="size-4 mr-2" />
                   <span className="sm:hidden">New</span>
-                  <span className="hidden sm:inline">New Widget</span>
+                  <span className="hidden sm:inline">{isLuma ? "New Home row" : "New Widget"}</span>
                 </Button>
 
                 <Button
@@ -4149,7 +4154,7 @@ function WidgetSelectionGridComponent({
                   className="w-full h-16 max-sm:h-14 border-2 border-dashed border-border/40 rounded-2xl max-sm:rounded-xl flex items-center justify-center gap-3 text-muted-foreground/40 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all group mt-2 bg-muted/5"
                 >
                   <Plus className="size-4 group-hover:scale-110 transition-transform opacity-50 group-hover:opacity-100" />
-                  <span className="text-xs font-bold uppercase tracking-widest">Add another widget</span>
+                  <span className="text-xs font-bold uppercase tracking-widest">{isLuma ? "Add another Home row" : "Add another widget"}</span>
                 </button>
               )}
             </div>

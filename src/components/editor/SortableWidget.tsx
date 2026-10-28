@@ -1,4 +1,5 @@
 "use client";
+import { rowTypeLabel } from '@/lib/editor-labels';
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -177,7 +178,7 @@ export const SortableWidget = memo(function SortableWidget({
     id: widget.id,
   });
 
-  const { deleteWidget, updateWidgetMeta, manifestUrl, replacePlaceholder, manifestCatalogs } = useConfig();
+  const { isLuma, deleteWidget, updateWidgetMeta, manifestUrl, replacePlaceholder, manifestCatalogs } = useConfig();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(widget.title);
@@ -363,7 +364,7 @@ export const SortableWidget = memo(function SortableWidget({
                   ? "bg-primary/10 text-primary border-primary/20" 
                   : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20"
               )}>
-                {widget.type.split('.')[0] === 'collection' ? 'Collection' : 'Classic Row'}
+                {rowTypeLabel(widget.type, isLuma)}
               </div>
               {hasNativeTrakt && (
                 <div className="h-5 px-2 rounded-md bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 border border-emerald-600/20 text-[9px] font-black uppercase tracking-[0.1em] flex items-center justify-center shrink-0 leading-none">
@@ -377,7 +378,7 @@ export const SortableWidget = memo(function SortableWidget({
               )}
               {widget.dataSource.kind === 'collection' && widget.dataSource.payload?.items && (
                 <div className="h-5 px-2 rounded-md bg-zinc-500/10 text-zinc-600/90 dark:text-zinc-300/80 border border-zinc-500/15 text-[9px] font-black uppercase tracking-[0.1em] flex items-center justify-center shrink-0 leading-none">
-                  {widget.dataSource.payload.items.length} items
+                  {widget.dataSource.payload.items.length} {isLuma ? 'folders' : 'items'}
                 </div>
               )}
               {hasInvalidCatalog && (
@@ -484,7 +485,7 @@ export const SortableWidget = memo(function SortableWidget({
                   ? "bg-primary/10 text-primary border-primary/20"
                   : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20"
               )}>
-                {widget.type.split('.')[0] === 'collection' ? 'Collection' : 'Classic Row'}
+                {rowTypeLabel(widget.type, isLuma)}
               </div>
               {hasNativeTrakt && (
                 <div className="h-5 px-2 rounded-md bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 border border-emerald-600/20 text-[9px] font-black uppercase tracking-[0.1em] flex items-center justify-center shrink-0 leading-none">

@@ -375,7 +375,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between px-0.5">
         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/42 flex items-center h-8">
-          Catalogs
+          {isLuma ? 'Catalogs inside this folder' : 'Catalogs'}
         </div>
         <CatalogCombobox
           options={manifestCatalogs}
@@ -394,6 +394,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
           }
         />
       </div>
+      {isLuma && <p className="text-[11px] leading-relaxed text-muted-foreground">One catalog opens directly when this folder has no subfolders. Multiple catalogs become rows or tabs inside the folder.</p>}
       <div className="space-y-1.5">
         <DndContext
           sensors={dataSourceSensors}

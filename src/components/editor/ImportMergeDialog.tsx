@@ -2,6 +2,7 @@
 
 import { useState, useRef, DragEvent, ChangeEvent, useMemo, useEffect, useCallback } from 'react';
 import { normalizeLumaImport } from '@/lib/luma-editor-adapter';
+import { rowTypeLabel } from '@/lib/editor-labels';
 import { useConfig } from '@/context/ConfigContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,7 +59,7 @@ interface ImportMergeDialogProps {
 
 export function ImportMergeDialog({ open, onOpenChange, initialJson, initialFileName }: ImportMergeDialogProps) {
   const isMobile = useMobile();
-  const { widgets, replaceConfig, manifestUrl, replacePlaceholder, manifestCatalogs } = useConfig();
+  const { isLuma, widgets, replaceConfig, manifestUrl, replacePlaceholder, manifestCatalogs } = useConfig();
   
   const [step, setStep] = useState<'input' | 'review' | 'success'>('input');
   
@@ -805,7 +806,7 @@ export function ImportMergeDialog({ open, onOpenChange, initialJson, initialFile
                     : "bg-teal-500/15 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400 border-teal-500/20 dark:border-teal-500/30",
                   !isSelected && !isUnchanged && "opacity-60"
                 )}>
-                  {isCollection ? 'Collection' : 'Classic Row'}
+                  {rowTypeLabel(w.type, isLuma)}
                 </div>
                 {!isUnchanged && <span className="text-muted-foreground/20 text-[10px] font-bold">·</span>}
                 {isUnchanged ? (
@@ -897,7 +898,7 @@ export function ImportMergeDialog({ open, onOpenChange, initialJson, initialFile
             <div className="flex-1 px-4 max-sm:px-2 pb-4 pt-1 max-sm:pt-2 space-y-2 overflow-hidden">
               <div className="pt-2 pb-2 flex items-center gap-2.5 px-1">
                 <ListTree className="size-3.5 text-muted-foreground/50 shrink-0" />
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/65">Items ({visibleCollectionItems.length})</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/65">{isLuma ? 'Folders' : 'Items'} ({visibleCollectionItems.length})</h3>
               </div>
               <div className="space-y-2">
               {visibleCollectionItems.map((item) => {

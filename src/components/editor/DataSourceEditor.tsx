@@ -17,7 +17,7 @@ export function DataSourceEditor({
 }: { 
   dataSource: AIOMetadataDataSource,
   onUpdate: (updates: Partial<AIOMetadataDataSource['payload']>) => void,
-  onDelete: () => void,
+  onDelete?: () => void,
   disabledCatalogIds?: string[]
 }) {
   const { manifestCatalogs } = useConfig();
@@ -105,7 +105,7 @@ export function DataSourceEditor({
         </div>
       </div>
 
-      <Button
+      {onDelete && <Button
         variant="ghost"
         size="icon"
         className={cn(editorDeleteButtonClass)}
@@ -113,7 +113,7 @@ export function DataSourceEditor({
         title="Delete data source"
       >
         <Trash2 className="size-3.5" />
-      </Button>
+      </Button>}
     </div>
   );
 }

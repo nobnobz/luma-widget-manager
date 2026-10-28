@@ -17,7 +17,7 @@ async function nativePreview(page: Page) {
   expect(Array.isArray(native)).toBe(true);
   return native;
 }
-test.beforeEach(async ({ page }) => { await mockTemplateRepository(page); });
+test.beforeEach(async ({ page }) => { await mockTemplateRepository(page); await page.route('https://example.com/**', route => route.fulfill({ status: 404, body: '' })); });
 
 test('keeps the Fusion welcome workflow and builds nested Luma pages inside its cards', async ({ page }) => {
   await page.goto('/');
@@ -25,16 +25,21 @@ test('keeps the Fusion welcome workflow and builds nested Luma pages inside its 
   await expect(page.getByTestId('welcome-import-textarea')).toBeVisible();
   await page.getByRole('button', { name: 'Load', exact: true }).click();
   const hub = await openMovies(page);
-  await expect(hub.getByRole('button', { name: 'Add section', exact: true })).toBeVisible();
-  await hub.getByRole('button', { name: 'Add section', exact: true }).click();
-  await hub.getByLabel('New section title').fill('Curated worlds');
+  await hub.getByText('Appearance & playback', { exact: true }).click();
+  await expect(hub.getByRole('combobox', { name: 'View inside this folder', exact: true })).toHaveValue('');
+  await hub.getByRole('combobox', { name: 'View inside this folder', exact: true }).selectOption('TABBED_GRID');
+
+  await expect(hub.getByRole('button', { name: 'Add folder row', exact: true })).toBeVisible();
+  await hub.getByRole('button', { name: 'Add folder row', exact: true }).click();
+  await hub.getByLabel('New folder row title').fill('Curated worlds');
   await hub.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(hub.getByRole('button', { name: 'Delete section Curated worlds' })).toBeVisible();
+  await expect(hub.getByRole('button', { name: 'Delete folder row Curated worlds' })).toBeVisible();
   await hub.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(hub.getByRole('button', { name: 'Delete section Curated worlds' })).toHaveCount(0);
+  await expect(hub.getByRole('button', { name: 'Delete folder row Curated worlds' })).toHaveCount(0);
   await hub.getByRole('button', { name: 'Done', exact: true }).click();
   const native = await nativePreview(page);
   expect(native[0].folders[0].sections[0].folders[0].subfolders[0].title).toBe('Science fiction');
+  expect(native[0].folders[0].viewMode).toBe('TABBED_GRID');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -98,7 +103,7 @@ test('creates catalog-free folders in collections, sections and subfolder grids 
   await expect(dialog.getByText('Sync manifest first', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Delete data source', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toBeVisible();
-  await dialog.getByRole('textbox', { name: 'Item Title', exact: true }).fill('New collection folder');
+  await dialog.getByRole('textbox', { name: 'Folder title', exact: true }).fill('New collection folder');
   await dialog.getByRole('button', { name: 'Create Folder', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(widget.getByText('New collection folder', { exact: true }).filter({ visible: true })).toBeVisible();
@@ -111,7 +116,7 @@ test('creates catalog-free folders in collections, sections and subfolder grids 
     await (location === 'section' ? addButtons.first() : addButtons.last()).click();
     dialog = page.getByRole('dialog', { name: 'Add New Folder', exact: true });
     await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toBeVisible();
-    await dialog.getByRole('textbox', { name: 'Item Title', exact: true }).fill(name);
+    await dialog.getByRole('textbox', { name: 'Folder title', exact: true }).fill(name);
     await dialog.getByRole('button', { name: 'Create Folder', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(hub.getByText(name, { exact: true }).filter({ visible: true }).first()).toBeVisible();
@@ -124,4 +129,47 @@ test('creates catalog-free folders in collections, sections and subfolder grids 
   expect(native[0].folders[0].sections[0].folders.at(-1).title).toBe('New section folder');
   expect(native[0].folders[0].subfolders.at(-1).title).toBe('New grid folder');
   expect(errors).toEqual([]);
+});
+
+test('explains Home row types and exports catalog rows directly in a mixed layout', async ({ page }) => {
+  const config = documentToEditor(starterDocument());
+  config.widgets.push({ id: 'trending', title: 'Trending Movies', type: 'row.classic', cacheTTL: 1800, limit: 20, presentation: { aspectRatio: 'poster', cardStyle: 'medium', badges: { providers: false, ratings: true } }, dataSource: { kind: 'addonCatalog', sourceType: 'aiometadata', payload: { addonId: 'YOUR_AIOMETADATA', catalogType: 'movie', catalogId: 'popular' } } });
+  await page.addInitScript(value => localStorage.setItem('fusion-widgets-config', JSON.stringify(value)), config);
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByTestId('new-widget-button').click();
+  const types = page.getByRole('group', { name: 'Row type', exact: true });
+  await expect(types.getByRole('button', { name: /^Folder row/ })).toHaveAttribute('aria-pressed', 'true');
+  await types.getByRole('button', { name: /^Catalog row/ }).click();
+  await expect(types.getByRole('button', { name: /^Catalog row/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('new-widget-title-input').fill('New poster row');
+  await page.getByTestId('new-widget-submit').click();
+  await expect(page.getByRole('dialog', { name: 'AIOMetadata Setup', exact: true })).toHaveCount(0);
+  const row = page.getByTestId('widget-card-trending');
+  await row.getByRole('button', { name: 'Expand widget', exact: true }).filter({ visible: true }).click();
+  await expect(row.getByText('Catalog for this Home row', { exact: true })).toBeVisible();
+  await expect(row.getByRole('button', { name: /delete data source/i })).toHaveCount(0);
+  // An incomplete catalog row must not block downloading the valid folder rows.
+  await page.getByTestId('export-button').click();
+  const parts = page.getByRole('group', { name: 'Rows to export' });
+  await parts.getByRole('button', { name: 'Catalog rows (2)' }).click();
+  await expect(page.getByRole('alert')).toContainText('incomplete');
+  await parts.getByRole('button', { name: 'Folder rows (1)' }).click();
+  const folders = JSON.parse(await page.getByTestId('export-preview-textarea').inputValue());
+  expect(folders[0].folders[0].title).toBe('Movies');
+  expect(errors).toEqual([]);
+});
+
+test('downloads a true Home catalog row without a folder wrapper', async ({ page }) => {
+  const config = { exportType: 'fusionWidgets', exportVersion: 1, widgets: [{ id: 'trending', title: 'Trending Movies', type: 'row.classic', cacheTTL: 1800, limit: 20, presentation: { aspectRatio: 'poster', cardStyle: 'medium', badges: { providers: false, ratings: true } }, dataSource: { kind: 'addonCatalog', sourceType: 'aiometadata', payload: { addonId: 'YOUR_AIOMETADATA', catalogType: 'movie', catalogId: 'popular' } } }] };
+  await page.addInitScript(value => localStorage.setItem('fusion-widgets-config', JSON.stringify(value)), config);
+  await page.goto('/'); await page.getByTestId('export-button').click();
+  const exported = JSON.parse(await page.getByTestId('export-preview-textarea').inputValue());
+  expect(exported.widgets[0].type).toBe('row.classic');
+  expect(exported.widgets[0].dataSource.payload.catalogId).toBe('movie::popular');
+  expect(exported.requiredAddons).toEqual(['preset:aiometadata']);
+  await expect(page.getByText(/Import this file using Luma’s Fusion import/)).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: /^Download(?: JSON)?$/ }).filter({ visible: true }).click();
+  expect((await download).suggestedFilename()).toBe('luma-catalog-rows.json');
 });

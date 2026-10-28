@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { editorPanelClass } from './editorSurfaceStyles';
 
 export function RowClassicEditor({ widget }: { widget: RowClassicWidget }) {
-  const { updateWidgetMeta } = useConfig();
+  const { updateWidgetMeta, isLuma } = useConfig();
   const isNativeTrakt = isNativeTraktDataSource(widget.dataSource);
   const isNativeAnilist = isNativeAnilistDataSource(widget.dataSource);
   const nativeTraktDataSource: NativeTraktDataSource | null = isNativeTrakt
@@ -46,10 +46,11 @@ export function RowClassicEditor({ widget }: { widget: RowClassicWidget }) {
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-2">
             <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-2">
-              <Layers className="size-3.5" /> {isNativeTrakt ? 'Native Trakt Source' : isNativeAnilist ? 'Native AniList Source' : 'Catalogs'}
+              <Layers className="size-3.5" /> {isNativeTrakt ? 'Native Trakt Source' : isNativeAnilist ? 'Native AniList Source' : (isLuma ? 'Catalog for this Home row' : 'Catalogs')}
             </h4>
           </div>
           
+          {isLuma && <p className="text-xs leading-relaxed text-muted-foreground">This row shows posters directly on Home. Choose one catalog below. To show folder cards instead, create a Folder row.</p>}
           <div className="space-y-1.5">
             {isNativeTrakt ? (
               <TraktSourceCard
@@ -65,7 +66,6 @@ export function RowClassicEditor({ widget }: { widget: RowClassicWidget }) {
               <DataSourceEditor 
                 dataSource={aiometadataDataSource!}
                 onUpdate={(updates) => handleDataSourceUpdate(updates)}
-                onDelete={() => {}} // Classic row must have one DS
               />
             )}
           </div>

@@ -769,8 +769,8 @@ export function MainEditor() {
 
   const onWidgetCreated = useCallback((id: string) => {
     setExpandedWidgetId(id);
-    setShowManifestModal(true);
-  }, []);
+    if (!isLuma) setShowManifestModal(true);
+  }, [isLuma]);
 
   // Render logic
   const renderContent = () => {
