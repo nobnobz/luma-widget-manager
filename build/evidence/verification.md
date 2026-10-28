@@ -25,3 +25,7 @@ The inspected iOS/macOS browsers render nested folder pages. The tvOS `LumaColle
 Native collection exports cannot carry independent Home catalog-row placement. Fusion `row.classic` conversion explicitly reports its conversion into a collection folder.
 
 Local caches and temporary files use one persistent root on the external SSD. The webpack build avoids Turbopack's rejection of external dependency symlinks.
+
+## CI runner compatibility
+
+The initial GitHub quality run failed during browser setup because Playwright 1.58.2 does not support the newly selected Ubuntu 26.04 runner. The quality workflow pins Ubuntu 24.04, which that existing Playwright release supports.
