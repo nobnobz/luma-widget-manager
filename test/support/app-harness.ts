@@ -121,13 +121,13 @@ export async function seedFixtureState(page: Page, fixture: AuditFixture, manife
 }
 
 export async function gotoWelcomePage(page: Page) {
-  await page.goto('/');
+  await page.goto('/fusion');
   await expect(page.getByTestId('welcome-import-textarea')).toBeVisible();
 }
 
 export async function gotoSeededSelectionPage(page: Page, fixture: AuditFixture, manifestSynced = true) {
   await seedFixtureState(page, fixture, manifestSynced);
-  await page.goto('/');
+  await page.goto('/fusion');
   await expect(page.getByTestId('new-widget-button')).toBeVisible();
 }
 

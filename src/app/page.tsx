@@ -1,5 +1,2 @@
-import { MainEditor } from "@/components/editor/MainEditor";
-
-export default function Home() {
-  return <MainEditor />;
-}
+import { LumaEditor } from '@/components/luma/LumaEditor';
+export default function Home() { return <LumaEditor />; }

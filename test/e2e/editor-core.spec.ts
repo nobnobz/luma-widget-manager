@@ -323,7 +323,7 @@ test('shows the item title visibility toggle inside configuration and preview', 
     });
   }, storedState);
 
-  await page.goto('/');
+  await page.goto('/fusion');
   await expect(page.getByTestId('new-widget-button')).toBeVisible();
 
   await page.getByTestId(`widget-card-${widgetId}`).scrollIntoViewIfNeeded();
@@ -431,7 +431,7 @@ test('shows moved items in review and applies cross-widget moves without duplica
     });
   }, storedState);
 
-  await page.goto('/');
+  await page.goto('/fusion');
   await expect(page.getByTestId('new-widget-button')).toBeVisible();
 
   const importPayload = {

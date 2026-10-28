@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fusion Widget Manager",
-  description: "A clean, visual editor for fusionWidgets JSON",
+  title: "Luma Widget Manager",
+  description: "Build UME hubs, sections and nested folders for Luma",
   icons: {
     icon: [
       { url: withBasePath("/favicon.ico"), sizes: "32x32", type: "image/x-icon" },
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Fusion Widget Manager",
+    title: "Luma Widget Manager",
   },
 };
 
