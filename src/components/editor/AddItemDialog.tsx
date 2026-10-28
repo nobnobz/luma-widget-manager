@@ -35,6 +35,14 @@ interface AddItemDialogProps {
   trigger?: React.ReactNode;
 }
 
+function emptyCatalogSource(): AIOMetadataDataSource {
+  return {
+    sourceType: 'aiometadata',
+    kind: 'addonCatalog',
+    payload: { addonId: MANIFEST_PLACEHOLDER, catalogId: '', catalogType: 'movie' },
+  };
+}
+
 export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
   const isMobile = useMobile();
   const { isLuma } = useConfig();
@@ -43,25 +51,22 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
   const [backgroundImageURL, setBackgroundImageURL] = useState('');
   const backgroundImageUrlInputRef = useRef<HTMLInputElement | null>(null);
   const [layout, setLayout] = useState<'Wide' | 'Poster' | 'Square'>('Wide');
-  const [dataSources, setDataSources] = useState<AIOMetadataDataSource[]>(isLuma ? [] : [
-    {
-      sourceType: 'aiometadata',
-      kind: 'addonCatalog',
-      payload: { addonId: MANIFEST_PLACEHOLDER, catalogId: '', catalogType: 'movie' }
-    }
-  ]);
+  const [dataSources, setDataSources] = useState<AIOMetadataDataSource[]>(() => isLuma ? [] : [emptyCatalogSource()]);
+  const primarySource = dataSources[0];
+  const dialogTitle = isLuma ? 'Add New Folder' : 'Add New Item';
 
   const handleAdd = () => {
     if (!name.trim()) return;
     
+    const id = crypto.randomUUID();
     const newItem: CollectionItem = {
-      id: crypto.randomUUID(),
+      id,
       name: name.trim(),
       hideTitle: false,
       layout: layout,
       backgroundImageURL: backgroundImageURL.trim(),
       dataSources: dataSources,
-      ...(isLuma ? { lumaFolder: { id: '', title: name.trim(), sources: [] } } : {}),
+      ...(isLuma ? { lumaFolder: { id, title: name.trim(), sources: [] } } : {}),
     };
     
     onAdd(newItem);
@@ -69,13 +74,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
     setName('');
     setBackgroundImageURL('');
     setLayout('Wide');
-    setDataSources(isLuma ? [] : [
-      {
-        sourceType: 'aiometadata',
-        kind: 'addonCatalog',
-        payload: { addonId: MANIFEST_PLACEHOLDER, catalogId: '', catalogType: 'movie' }
-      }
-    ]);
+    setDataSources(isLuma ? [] : [emptyCatalogSource()]);
   };
 
   const handleClearBackgroundImageUrl = () => {
@@ -94,7 +93,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
             <Plus className="size-7 max-sm:size-5" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">{isLuma ? 'Add New Folder' : 'Add New Item'}</h2>
+            <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">{dialogTitle}</h2>
             <p className="max-w-[360px] text-xs font-medium leading-relaxed text-muted-foreground/64 max-sm:max-w-none max-sm:text-[11px]">
               {isLuma ? 'Create a catalog folder, or leave catalogs empty to build a hub page.' : 'Configure a new entry for your collection.'}
             </p>
@@ -172,11 +171,22 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
                 <Layers className="size-3" /> Data Source
               </Label>
             </div>
-            <DataSourceEditor 
-              dataSource={dataSources[0]}
-              onUpdate={(updates) => setDataSources([ { ...dataSources[0], payload: { ...dataSources[0].payload, ...updates } } ])}
-              onDelete={() => {}} 
-            />
+            {primarySource ? (
+              <DataSourceEditor
+                dataSource={primarySource}
+                onUpdate={(updates) => setDataSources(current => current[0]
+                  ? [{ ...current[0], payload: { ...current[0].payload, ...updates } }]
+                  : current)}
+                onDelete={() => { if (isLuma) setDataSources([]); }}
+              />
+            ) : (
+              <div className="space-y-3 rounded-2xl border border-dashed border-border/60 bg-background/40 p-4">
+                <p className="text-xs leading-relaxed text-muted-foreground">No catalog selected. You can create this folder now and add catalogs, sections or subfolders afterwards.</p>
+                <Button type="button" variant="ghost" className={cn(editorActionButtonClass, "h-9 border border-primary/20 bg-primary/5 px-4 text-[10px] text-primary")} onClick={() => setDataSources([emptyCatalogSource()])}>
+                  <Plus className="mr-2 size-3.5" />Add catalog
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -195,7 +205,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
             disabled={!name.trim()}
             className={cn(editorActionButtonClass, editorFooterPrimaryButtonClass, "w-full sm:flex-1")}
           >
-            Create Item
+            {isLuma ? 'Create Folder' : 'Create Item'}
           </Button>
         </footer>
       </div>
@@ -213,7 +223,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
           )}
         </DrawerTrigger>
         <DrawerContent className="border-zinc-200/80 bg-zinc-50/96 dark:border-white/12 dark:bg-zinc-950/93">
-          <DrawerTitle className="sr-only">Add New Item</DrawerTitle>
+          <DrawerTitle className="sr-only">{dialogTitle}</DrawerTitle>
           {Content}
         </DrawerContent>
       </Drawer>
@@ -230,7 +240,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[560px] rounded-3xl border border-zinc-200/80 bg-zinc-50/96 p-0 overflow-hidden backdrop-blur-2xl dark:border-white/12 dark:bg-zinc-950/93">
-        <DialogTitle className="sr-only">Add New Item</DialogTitle>
+        <DialogTitle className="sr-only">{dialogTitle}</DialogTitle>
         {Content}
       </DialogContent>
     </Dialog>

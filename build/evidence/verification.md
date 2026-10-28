@@ -27,3 +27,9 @@ Native page editing opens from the existing folder card. Nested folders use Coll
 - The existing tag-pack browser provides the original Fusion UME badge-pack URLs and Luma instructions. Badge packs use Luma's separate settings importer; they are not incorrectly placed in collection JSON.
 - Confirmed against the current Luma source: shared StreamBadges parser/settings, native collection wire format and tvOS focus-video cells. Focus-video playback is implemented on tvOS. Persistence of animation fields on other platforms is not a playback claim.
 - iOS/macOS render nested pages. The inspected tvOS folder browser still lacks that capability. No Luma application code or physical-device import was changed/performed.
+
+## Add Folder crash fix
+
+Reproduced on the deployed site: opening Add Folder passed an undefined source into DataSourceEditor, which read `.payload` and crashed the page. Luma intentionally starts a folder with no catalogs. AddItemDialog now renders an explicit catalog-free state and mounts the source editor only when a source exists. Catalogs can be added/removed before creation. The native folder snapshot uses the actual generated folder ID.
+
+The dedicated browser regression passed on desktop and mobile: create a catalog-free folder in a collection, in a hub section and in a subfolder grid; add/remove an optional catalog; verify native export and absence of page errors. Production build and ESLint passed.

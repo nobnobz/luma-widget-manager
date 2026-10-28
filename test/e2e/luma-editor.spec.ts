@@ -82,3 +82,46 @@ test('applies an animated cover pack through the single pack browser and include
   expect(native[0].folders[0].focusVideoUrl).toBe('https://example.com/movie.mp4');
   expect(native[0].folders[0].focusGifEnabled).toBe(true);
 });
+
+test('creates catalog-free folders in collections, sections and subfolder grids without crashing', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Load', exact: true }).click();
+  const widget = page.locator('[data-testid^="widget-card-"]').first();
+  await widget.getByRole('button', { name: 'Expand widget', exact: true }).filter({ visible: true }).click();
+  await widget.getByRole('button', { name: 'Add Folder', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: 'Add New Folder', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Create Folder', exact: true })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Add catalog', exact: true }).click();
+  await expect(dialog.getByText('Sync manifest first', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Delete data source', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toBeVisible();
+  await dialog.getByRole('textbox', { name: 'Item Title', exact: true }).fill('New collection folder');
+  await dialog.getByRole('button', { name: 'Create Folder', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(widget.getByText('New collection folder', { exact: true }).filter({ visible: true })).toBeVisible();
+
+  await widget.getByRole('button', { name: /Expand item/i }).filter({ visible: true }).first().click();
+  await widget.getByRole('button', { name: 'Edit hub page', exact: true }).click();
+  const hub = page.getByRole('dialog').filter({ hasText: 'Folder level 1 of 3' });
+  for (const [location, name] of [['section', 'New section folder'], ['grid', 'New grid folder']] as const) {
+    const addButtons = hub.getByRole('button', { name: /^Add folder$/i });
+    await (location === 'section' ? addButtons.first() : addButtons.last()).click();
+    dialog = page.getByRole('dialog', { name: 'Add New Folder', exact: true });
+    await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toBeVisible();
+    await dialog.getByRole('textbox', { name: 'Item Title', exact: true }).fill(name);
+    await dialog.getByRole('button', { name: 'Create Folder', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(hub.getByText(name, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  }
+  await hub.getByRole('button', { name: 'Done', exact: true }).click();
+  const native = await nativePreview(page);
+  expect(native[0].folders.at(-1).title).toBe('New collection folder');
+  expect(native[0].folders.at(-1).sources).toEqual([]);
+  expect(native[0].folders.at(-1).id).toBeTruthy();
+  expect(native[0].folders[0].sections[0].folders.at(-1).title).toBe('New section folder');
+  expect(native[0].folders[0].subfolders.at(-1).title).toBe('New grid folder');
+  expect(errors).toEqual([]);
+});
