@@ -8,8 +8,8 @@ The [Fusion Widget Manager](https://github.com/nobnobz/fusion-widget-manager) in
 
 1. Import a Luma or Fusion export, choose a UME template, or **Create New**. **UME v4.0 Hub Starter** in the existing template picker gives you an empty structural starter.
 2. Add folder cards to a **Folder row**. Choose their covers, tile shapes and catalogs in the familiar editor.
-3. Open a folder and choose **Edit hub page** to add horizontal sections and a closing subfolder grid. Folder cards inside those sections use the same editor. Luma supports three folder levels.
-4. Arrange catalog/section blocks in **Page order**. Duplicate or reorder subfolders, restore deleted folders/sections and undo page changes. Catalog settings remain in the folder card; appearance options remain in the page’s optional appearance section.
+3. Open a folder and choose **Edit hub page** to add horizontal folder rows and a closing subfolder grid. Folder cards inside those rows use the same editor. Luma supports three folder levels.
+4. Arrange catalog and folder rows in **Row order**. Duplicate or reorder subfolders, restore deleted folders and rows and undo page changes. Catalog settings remain in the folder card; appearance options remain in the page’s optional appearance section.
 5. **Export → Luma → Folder rows** downloads a native `luma-collections.json` array, including nested structure, per-source options, animation fields and unknown imported provider fields. Incomplete catalogs block export instead of being dropped.
 
 Empty starters contain no movie lists or finished artwork. Add your real catalogs and covers before publishing a UME pack. **Catalog row** shows one catalog directly as a poster row on Home and exports as `luma-catalog-rows.json` through Luma’s existing Fusion importer. Mixed layouts require both files; arrange their order in Luma after import. **Hub** means the page behind a folder, containing catalog rows, folder rows and a folder grid.
