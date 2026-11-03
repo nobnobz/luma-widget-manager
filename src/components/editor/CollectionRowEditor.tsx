@@ -9,6 +9,7 @@ import { Plus, ListTree, Layers, SortAsc, SortDesc, Pencil, Trash2 } from 'lucid
 import { cn } from '@/lib/utils';
 import { CollectionItemEditor } from './CollectionItemEditor';
 import { AddItemDialog } from './AddItemDialog';
+import { IDField } from './LumaCatalogEditor';
 import { editorPanelClass } from './editorSurfaceStyles';
 import { 
   DndContext, 
@@ -215,7 +216,8 @@ export const CollectionRowEditor = memo(function CollectionRowEditor({
                 <option value="ROWS">One row per catalog</option><option value="TABBED_GRID">Catalog tabs and poster grid</option><option value="FOLLOW_LAYOUT">Use Luma’s layout</option>
               </select>
             </label>
-            <div className="flex flex-wrap gap-5 text-xs">{(['pinToTop','showAllTab'] as const).map(key => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={(widget.lumaHub?.[key] as boolean | undefined) ?? key === 'showAllTab'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, [key]: e.target.checked } })} />{key === 'pinToTop' ? 'Keep this row at the top of Home' : 'Add an All tab for combined catalog results'}</label>)}</div>
+            <IDField label="Excluded genres for this folder row (IDs)" value={widget.lumaHub?.excludedGenreIDs} change={v => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, excludedGenreIDs: [...new Set(v.split(/[,\s]+/).filter(Boolean).map(Number))] } })} />
+            <div className="flex flex-wrap gap-5 text-xs">{(['pinToTop','showAllTab','focusGlowEnabled','showFolderNames','showFocusedFolderName'] as const).map(key => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={(widget.lumaHub?.[key] as boolean | undefined) ?? key !== 'pinToTop'} onChange={e => updateWidgetMeta(widget.id, { lumaHub: { id: widget.id, title: widget.title, folders: [], ...widget.lumaHub, [key]: e.target.checked } })} />{({ pinToTop: 'Keep this row at the top of Home', showAllTab: 'Add an All tab for combined catalog results', focusGlowEnabled: 'Focus glow', showFolderNames: 'Show folder names', showFocusedFolderName: 'Show focused folder name' })[key]}</label>)}</div>
           </div>}
         </div>}
         <DndContext 

@@ -93,3 +93,66 @@ test('catalog export rejects duplicate routes and native options rather than los
   const invalid = catalogRow(); invalid.dataSource.payload.addonId = 'org.example';
   assert.match(buildLumaExportParts([invalid])[0].error!, /manifest URL/);
 });
+
+test('catalog sections and independent catalog copies survive persistence, cloning and export', () => {
+  const doc = starterDocument(), folder = doc.collections[0].folders[0];
+  folder.sources = [
+    { id: 'popular', provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'popular', contentFilters: { includedGenreIDs: [28], excludedGenreIDs: [99], year: 2026, minimumRating: 7, release: 'released', order: 'topRated' }, lumaPresentation: { showRanking: true, future: 'keep' } },
+    { id: 'discover', provider: 'tmdb', tmdbSourceType: 'DISCOVER', mediaType: 'movie', filters: { withGenres: '878', voteCountGte: '100' } },
+    { id: 'popular-copy', provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'popular', genre: 'Comedy' },
+  ];
+  folder.catalogGroups = [{ id: 'group', title: 'Highlights', catalogIDs: ['popular', 'discover', 'popular-copy', 'unavailable'], custom: { keep: true } }];
+  folder.blockOrder = ['catalog:popular', 'catalog:discover', 'catalog:popular-copy'];
+  const normalized = normalizeLoadedState(JSON.parse(JSON.stringify({ widgets: documentToEditor(doc).widgets, trash: [], itemTrash: [] }))).widgets;
+  const exported = JSON.parse(exportEditorForLuma(normalized))[0].folders[0];
+  assert.deepEqual(exported.sources.map((s: { id: string }) => s.id), ['popular', 'discover', 'popular-copy']);
+  assert.deepEqual(exported.catalogGroups, folder.catalogGroups);
+  assert.deepEqual(exported.sources[0].contentFilters, folder.sources[0].contentFilters);
+  assert.deepEqual(exported.sources[0].lumaPresentation, folder.sources[0].lumaPresentation);
+  const copy = cloneFolder(exported);
+  assert.notEqual(copy.catalogGroups![0].id, 'group');
+  assert.deepEqual(copy.catalogGroups![0].catalogIDs.slice(0, 3), copy.sources!.map(s => s.id));
+  assert.equal(copy.catalogGroups![0].catalogIDs[3], 'unavailable');
+  assert.deepEqual(copy.blockOrder, copy.sources!.map(s => `catalog:${s.id}`));
+});
+
+test('legacy catalog identities materialize once and remain stable through draft edits', () => {
+  const item = folderToItem({ id: 'f', title: 'Legacy', sources: [{ provider: 'addon', addonId: 'org.example', type: 'movie', catalogId: 'popular' }] });
+  assert.ok(item.dataSources[0].kind === 'addonCatalog' && item.dataSources[0].lumaSource?.id);
+  assert.deepEqual(itemToDraftFolder(item).sources, itemToDraftFolder(item).sources);
+});
+
+test('removing an add-on catalog keeps native sources in place and legacy export rejects native sections', () => {
+  const item = folderToItem({ id: 'f', title: 'Mixed', sources: [
+    { id: 'a', provider: 'addon', addonId: 'org.example', type: 'movie', catalogId: 'a' },
+    { id: 'native', provider: 'tmdb', tmdbSourceType: 'DISCOVER' },
+    { id: 'b', provider: 'addon', addonId: 'org.example', type: 'movie', catalogId: 'b' },
+  ] });
+  item.dataSources.shift();
+  assert.deepEqual(itemToDraftFolder(item).sources!.map(s => s.id), ['native', 'b']);
+  const doc = starterDocument();
+  doc.collections[0].folders = [{ id: 'f', title: 'Grouped', sources: [], catalogGroups: [{ id: 'g', title: 'Group', catalogIDs: [] }] }];
+  assert.throws(() => assertLegacyExportCompatible(documentToEditor(doc).widgets), /Choose Luma/);
+});
+
+test('previewing nested portable catalogs never mutates the saved editor draft', () => {
+  const doc = starterDocument();
+  doc.collections[0].folders[0].subfolders![0].sources = [{ provider: 'addon', addonId: 'https://example.com/manifest.json', type: 'movie', catalogId: 'popular' }];
+  const widgets = documentToEditor(doc).widgets, before = structuredClone(widgets);
+  const native = JSON.parse(exportEditorForLuma(widgets, 'https://example.com/manifest.json'));
+  assert.equal(native[0].folders[0].subfolders[0].sources[0].addonId, 'preset:aiometadata');
+  assert.deepEqual(widgets, before);
+  const folder = widgets[0].type === 'collection.row' ? widgets[0].dataSource.payload.items[0].lumaFolder! : null;
+  assert.ok(folder?.subfolders![0].sources![0].id);
+});
+
+test('legacy export checks current catalog edits even before a native folder is materialized', () => {
+  const widget = documentToEditor({ collections: [{ id: 'h', title: 'Home', folders: [{ id: 'f', title: 'Movies', sources: [{ id: 'c', provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'popular' }] }] }] }).widgets[0];
+  if (widget.type !== 'collection.row') throw new Error('Expected folder row');
+  const item = widget.dataSource.payload.items[0];
+  delete item.lumaFolder;
+  const source = item.dataSources[0];
+  if (source.kind !== 'addonCatalog') throw new Error('Expected add-on');
+  source.lumaSource = { ...source.lumaSource, provider: 'addon', contentFilters: { minimumRating: 8 } };
+  assert.throws(() => assertLegacyExportCompatible([widget]), /Choose Luma/);
+});

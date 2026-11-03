@@ -44,3 +44,18 @@ test('rejects malformed arrays, unsupported Fusion versions and oversized files'
   assert.throws(() => importDocument({ exportType: 'fusionWidgets', exportVersion: 2 }), /version/);
   assert.throws(() => parseDocument(' '.repeat(4 * 1024 * 1024 + 1)), /4 MB/);
 });
+
+test('checks native catalog sections and incomplete provider routes without dropping unavailable references', () => {
+  const doc = starterDocument(), folder = doc.collections[0].folders[0];
+  folder.catalogGroups = [{ id: 'g', title: 'Group', catalogIDs: ['uninstalled'], isEnabled: false }];
+  validateDocument(doc);
+  folder.sources = [{ id: 'same', provider: 'tmdb', tmdbSourceType: 'PERSON', tmdbId: 123 }, { id: 'same', provider: 'trakt', traktListId: 456 }];
+  assert.throws(() => validateDocument(doc), /Duplicate catalog ID/);
+  folder.sources = [{ provider: 'tmdb', tmdbSourceType: 'LIST' }];
+  assert.throws(() => validateDocument(doc), /positive TMDB ID/);
+  folder.sources = [{ provider: 'trakt', traktListId: '' }];
+  assert.throws(() => validateDocument(doc), /positive list ID/);
+  folder.sources = [];
+  folder.catalogGroups[0].catalogIDs = [42 as unknown as string];
+  assert.throws(() => validateDocument(doc), /Invalid group catalog IDs/);
+});

@@ -3,13 +3,16 @@ export interface CatalogSource {
   id?: string; provider: string; addonId?: string; type?: string; catalogId?: string;
   title?: string; genre?: string; homeEnabled?: boolean; [key: string]: unknown;
 }
+export interface CatalogGroup {
+  id: string; title: string; catalogIDs: string[]; isEnabled?: boolean; [key: string]: unknown;
+}
 export interface Section {
   id: string; title: string; folders: Folder[]; hideTitle?: boolean;
   tileShape?: string; homeEnabled?: boolean; dynamicSource?: string; [key: string]: unknown;
 }
 export interface Folder {
   id: string; title: string; sources?: CatalogSource[]; sections?: Section[];
-  subfolders?: Folder[]; blockOrder?: string[]; tileShape?: string;
+  subfolders?: Folder[]; blockOrder?: string[]; tileShape?: string; catalogGroups?: CatalogGroup[];
   coverImageUrl?: string; focusVideoUrl?: string; heroBackdropUrl?: string;
   hideTitle?: boolean; homeEnabled?: boolean; [key: string]: unknown;
 }
@@ -67,11 +70,33 @@ export function validateDocument(value: unknown): asserts value is LumaDocument 
       if (ids.has(row.id)) throw new Error(`Duplicate ID: ${row.id}`); ids.add(row.id);
       if (kind === 'hub' || kind === 'section') rows(row.folders ?? [], depth, 'folder');
       else {
+        if (row.openTarget === 'tmdb_person' && !(Number.isSafeInteger(Number(row.tmdbPersonId)) && Number(row.tmdbPersonId) > 0)) throw new Error('A person folder needs a positive TMDB person ID.');
         if (depth > MAX_DEPTH) throw new Error('Luma supports at most three folder levels.');
         rows(row.subfolders ?? [], depth + 1, 'folder'); rows(row.sections ?? [], depth + 1, 'section');
+        const sourceIDs = new Set();
         if (row.sources !== undefined) for (const source of array(row.sources, 'Sources')) {
           const s = object(source); text(s.provider, 'Provider');
+          if (s.id !== undefined) { text(s.id, 'Catalog ID'); if (sourceIDs.has(s.id)) throw new Error(`Duplicate catalog ID: ${s.id}`); sourceIDs.add(s.id); }
+          if (s.contentFilters !== undefined) {
+            const filters = object(s.contentFilters);
+            for (const key of ['includedGenreIDs', 'excludedGenreIDs']) if (filters[key] !== undefined && !array(filters[key], key).every(n => Number.isSafeInteger(n) && Number(n) > 0)) throw new Error('Genre IDs must be positive integers.');
+            if (filters.year !== undefined && !Number.isSafeInteger(filters.year)) throw new Error('Year must be an integer.');
+            if (filters.minimumRating !== undefined && !(Number.isInteger(filters.minimumRating) && Number(filters.minimumRating) >= 0 && Number(filters.minimumRating) <= 10)) throw new Error('Minimum rating must be an integer from 0 to 10.');
+          }
+          if (s.provider === 'unsupported-editor-source') throw new Error('Connect this list through AIOMetadata before exporting for Luma.');
+          if (s.provider === 'jellyfin') { text(s.addonId, 'Server ID'); text(s.type, 'Catalog type'); text(s.catalogId, 'Catalog ID'); }
+          if (s.provider === 'tmdb' && String(s.tmdbSourceType ?? 'DISCOVER').toUpperCase() !== 'DISCOVER' && !(Number.isSafeInteger(Number(s.tmdbId)) && Number(s.tmdbId) > 0)) throw new Error('A TMDB catalog needs a positive TMDB ID.');
+          if (s.provider === 'trakt' && !(Number.isSafeInteger(Number(s.traktListId)) && Number(s.traktListId) > 0)) throw new Error('A Trakt catalog needs a positive list ID.');
           if (s.provider === 'addon') { text(s.addonId, 'Add-on ID'); text(s.type, 'Catalog type'); text(s.catalogId, 'Catalog ID'); }
+        }
+        if (row.catalogGroups !== undefined) {
+          const groupIDs = new Set();
+          for (const raw of array(row.catalogGroups, 'Catalog groups')) {
+            const group = object(raw); text(group.id, 'Group ID'); text(group.title, 'Group title');
+            if (groupIDs.has(group.id)) throw new Error(`Duplicate group ID: ${group.id}`); groupIDs.add(group.id);
+            if (!array(group.catalogIDs, 'Group catalogs').every(id => typeof id === 'string')) throw new Error('Invalid group catalog IDs.');
+            if (group.isEnabled !== undefined && typeof group.isEnabled !== 'boolean') throw new Error('Invalid group enabled setting.');
+          }
         }
         if (row.blockOrder !== undefined && !array(row.blockOrder, 'Block order').every(x => typeof x === 'string')) throw new Error('Invalid block order.');
       }

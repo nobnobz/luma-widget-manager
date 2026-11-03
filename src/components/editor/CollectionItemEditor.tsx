@@ -193,6 +193,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
     const newDS: AIOMetadataDataSource = {
       sourceType: 'aiometadata',
       kind: 'addonCatalog',
+      ...(isLuma ? { lumaSource: { provider: 'addon', id: crypto.randomUUID() } } : {}),
       payload: {
         addonId: MANIFEST_PLACEHOLDER,
         catalogId: combinedId,
@@ -240,6 +241,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
     const newDS: AIOMetadataDataSource = {
       sourceType: 'aiometadata',
       kind: 'addonCatalog',
+      ...(isLuma ? { lumaSource: item.dataSources[dsIndex].kind === 'addonCatalog' ? item.dataSources[dsIndex].lumaSource ?? { provider: 'addon', id: crypto.randomUUID() } : { provider: 'addon', id: crypto.randomUUID() } } : {}),
       payload: {
         addonId: MANIFEST_PLACEHOLDER,
         catalogId: combinedId,

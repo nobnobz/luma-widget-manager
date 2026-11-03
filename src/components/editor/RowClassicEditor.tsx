@@ -50,7 +50,7 @@ export function RowClassicEditor({ widget }: { widget: RowClassicWidget }) {
             </h4>
           </div>
           
-          {isLuma && <p className="text-xs leading-relaxed text-muted-foreground">This row shows posters directly on Home. Choose one catalog below. To show folder cards instead, create a Folder row.</p>}
+          {isLuma && <p className="text-xs leading-relaxed text-muted-foreground">This row shows posters directly on Home. Choose one catalog below. Additional filters, catalog copies, ranking and catalog sections can be configured inside a Folder row → Edit hub page. The Home-row importer carries the catalog route only.</p>}
           <div className="space-y-1.5">
             {isNativeTrakt ? (
               <TraktSourceCard

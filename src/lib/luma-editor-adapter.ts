@@ -3,6 +3,14 @@ import { exportDocument, importDocument, newID, type CatalogSource, type Folder,
 
 /** Preserve native fields while the established Fusion components edit their familiar projection. */
 export function folderToItem(folder: Folder): CollectionItem {
+  folder = structuredClone(folder);
+  function identify(current: Folder) {
+    current.sources = [current.sources, current.catalogSources as CatalogSource[] | undefined, current.catalog_sources as CatalogSource[] | undefined].find(rows => rows?.length) ?? [];
+    current.sources = current.sources.map(s => ({ ...s, id: s.id || newID(), provider: s.provider || 'addon' }));
+    current.sections?.forEach(s => s.folders.forEach(identify));
+    current.subfolders?.forEach(identify);
+  }
+  identify(folder);
   return {
     id: folder.id, name: folder.title, hideTitle: folder.hideTitle ?? false,
     layout: folder.tileShape === 'POSTER' ? 'Poster' : folder.tileShape === 'SQUARE' ? 'Square' : 'Wide',
@@ -21,13 +29,21 @@ function sourceToNative(source: WidgetDataSource, index: number): CatalogSource 
   return { ...source.lumaSource, id: source.lumaSource?.id ?? `source-${index}`, provider: 'addon', addonId: addon,
     type: catalogType, catalogId };
 }
+function combineSources(edited: CatalogSource[], original: CatalogSource[] = []): CatalogSource[] {
+  const pending = [...edited];
+  const result: CatalogSource[] = [];
+  for (const source of original) {
+    if (source.provider && source.provider !== 'addon') result.push(source);
+    else if ((!source.id || edited.some(s => s.id === source.id)) && pending.length) result.push(pending.shift()!);
+  }
+  return [...result, ...pending];
+}
 export function itemToFolder(item: CollectionItem): Folder {
   const raw = item.lumaFolder ?? { id: item.id, title: item.name };
   return { ...raw, id: item.id, title: item.name, hideTitle: item.hideTitle,
     tileShape: item.layout === 'Poster' ? 'POSTER' : item.layout === 'Square' ? 'SQUARE' : 'LANDSCAPE',
     coverImageUrl: item.backgroundImageURL,
-    sources: [...item.dataSources.map(sourceToNative),
-      ...(raw.sources ?? []).filter(s => s.provider && s.provider !== 'addon')],
+    sources: combineSources(item.dataSources.map(sourceToNative), raw.sources),
   };
 }
 /** Drafts may contain incomplete source rows; export validates them separately. */
@@ -35,9 +51,9 @@ export function itemToDraftFolder(item: CollectionItem): Folder {
   return { ...(item.lumaFolder ?? {}), id: item.id, title: item.name, hideTitle: item.hideTitle,
     tileShape: item.layout === 'Poster' ? 'POSTER' : item.layout === 'Square' ? 'SQUARE' : 'LANDSCAPE',
     coverImageUrl: item.backgroundImageURL,
-    sources: [...item.dataSources.map((s, i): CatalogSource => s.kind === 'addonCatalog'
+    sources: combineSources(item.dataSources.map((s, i): CatalogSource => s.kind === 'addonCatalog'
       ? { ...s.lumaSource, id: s.lumaSource?.id ?? `source-${i}`, provider: 'addon', addonId: s.payload.addonId, type: s.payload.catalogType, catalogId: s.payload.catalogId }
-      : { provider: 'unsupported-editor-source', editorSource: s }), ...(item.lumaFolder?.sources ?? []).filter(s => s.provider && s.provider !== 'addon')],
+      : { provider: 'unsupported-editor-source', editorSource: s }), item.lumaFolder?.sources),
   };
 }
 export function documentToEditor(document: LumaDocument): FusionWidgetsConfig {
@@ -67,7 +83,7 @@ export function editorToDocument(widgets: Widget[]): LumaDocument {
   }) };
 }
 export function exportEditorForLuma(widgets: Widget[], manifestUrl = ''): string {
-  const document = editorToDocument(widgets);
+  const document = structuredClone(editorToDocument(widgets));
   function portable(folder: Folder) {
     for (const source of folder.sources ?? []) if (manifestUrl && source.provider === 'addon' && source.addonId === manifestUrl) source.addonId = 'preset:aiometadata';
     folder.sections?.forEach(s => s.folders.forEach(portable)); folder.subfolders?.forEach(portable);
@@ -123,7 +139,7 @@ export function buildLumaExportParts(widgets: Widget[], manifestUrl = ''): LumaE
       if (catalogRoutes.has(route)) throw new Error(`“${widget.title}” repeats a catalog already used by another Home row. Luma requires distinct catalogs in one import.`);
       catalogRoutes.add(route);
       requiredAddons.add(addonId);
-      return { id: widget.id, title: widget.title, type: 'row.classic', dataSource: { kind: 'addonCatalog', payload: { addonId, type: source.type, catalogId: source.catalogId } } };
+      return { id: widget.id, title: widget.title, ...(widget.hideTitle !== undefined ? { hideTitle: widget.hideTitle } : {}), type: 'row.classic', dataSource: { kind: 'addonCatalog', payload: { addonId, type: source.type, catalogId: source.catalogId } } };
     });
     if (requiredAddons.size > 32) throw new Error('Luma accepts at most 32 add-on dependencies per import.');
     const text = JSON.stringify({ exportType: 'fusionWidgets', exportVersion: 1, requiredAddons: [...requiredAddons], widgets: rows }, null, 2);
@@ -138,6 +154,7 @@ export function cloneFolder(folder: Folder): Folder {
   copy.sources = copy.sources?.map(s => { const id = newID(); if (s.id) keys.set(`catalog:${s.id}`, `catalog:${id}`); return { ...s, id }; });
   copy.sections = copy.sections?.map(s => { const id = newID(); keys.set(`section:${s.id}`, `section:${id}`); return { ...s, id, folders: s.folders.map(cloneFolder) }; });
   copy.subfolders = copy.subfolders?.map(cloneFolder);
+  copy.catalogGroups = copy.catalogGroups?.map(g => ({ ...g, id: newID(), catalogIDs: g.catalogIDs.map(id => keys.get(`catalog:${id}`)?.slice(8) ?? id) }));
   copy.blockOrder = copy.blockOrder?.map(k => keys.get(k) ?? k);
   return copy;
 }
@@ -165,7 +182,8 @@ export function applyAnimatedCovers(widgets: Widget[], covers: { title: string; 
 export function assertLegacyExportCompatible(widgets: Widget[]): void {
   for (const widget of widgets) if (widget.type === 'collection.row') for (const item of widget.dataSource.payload.items) {
     const folder = item.lumaFolder;
-    if (folder && ((folder.sections?.length ?? 0) > 0 || (folder.subfolders?.length ?? 0) > 0 || (folder.sources ?? []).some(s => s.provider && s.provider !== 'addon'))) {
+    const hasNativeOptions = item.dataSources.some(s => s.kind === 'addonCatalog' && Object.keys(s.lumaSource ?? {}).some(key => !['id','provider','addonId','type','catalogId'].includes(key)));
+    if (hasNativeOptions || folder && ((folder.sections?.length ?? 0) > 0 || (folder.subfolders?.length ?? 0) > 0 || (folder.catalogGroups?.length ?? 0) > 0 || (folder.sources ?? []).some(s => s.provider && s.provider !== 'addon' || Object.keys(s).some(key => !['id','provider','addonId','type','catalogId'].includes(key))))) {
       throw new Error('This setup contains Luma hub pages or native sources. Choose Luma export to preserve them.');
     }
   }

@@ -173,3 +173,31 @@ test('downloads a true Home catalog row without a folder wrapper', async ({ page
   await page.getByRole('button', { name: /^Download(?: JSON)?$/ }).filter({ visible: true }).click();
   expect((await download).suggestedFilename()).toBe('luma-catalog-rows.json');
 });
+
+test('builds catalog sections and filtered native catalogs through the hub editor and keeps them on reload', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Load', exact: true }).click();
+  const hub = await openMovies(page);
+  await hub.getByRole('button', { name: 'Add TMDB catalog', exact: true }).click();
+  await hub.getByText('1. New catalog · tmdb', { exact: true }).click();
+  await hub.getByLabel('Catalog title', { exact: true }).fill('Sci-fi discoveries');
+  await hub.getByLabel('Included genre IDs', { exact: true }).fill('878, 28');
+  await hub.getByLabel('Year', { exact: true }).fill('2026');
+  await hub.getByLabel('Minimum rating', { exact: true }).selectOption('7');
+  await hub.getByLabel('Ranking numbers', { exact: true }).selectOption('true');
+  await hub.getByRole('button', { name: 'Add catalog section', exact: true }).click();
+  await hub.getByLabel('Catalog section title', { exact: true }).fill('Explore new worlds');
+  await hub.getByRole('checkbox', { name: 'Sci-fi discoveries', exact: true }).check();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('catalog-sections.png') });
+  await hub.getByRole('button', { name: 'Done', exact: true }).click();
+  const native = await nativePreview(page), folder = native[0].folders[0];
+  expect(folder.sources[0].contentFilters).toMatchObject({ includedGenreIDs: [878, 28], year: 2026, minimumRating: 7 });
+  expect(folder.sources[0].lumaPresentation.showRanking).toBe(true);
+  expect(folder.catalogGroups[0]).toMatchObject({ title: 'Explore new worlds', catalogIDs: [folder.sources[0].id] });
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('fusion-widgets-config') || '{}').widgets?.[0]?.dataSource?.payload?.items?.[0]?.lumaFolder?.catalogGroups?.[0]?.title)).toBe('Explore new worlds');
+  await page.reload();
+  const restored = await nativePreview(page);
+  expect(restored[0].folders[0].catalogGroups).toEqual(folder.catalogGroups);
+  expect(restored[0].folders[0].sources).toEqual(folder.sources);
+});
