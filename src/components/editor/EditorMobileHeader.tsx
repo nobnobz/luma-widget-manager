@@ -24,7 +24,7 @@ import { ManagerSwitcher } from '@/components/ui/ManagerSwitcher';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import LogoImage from '@/../public/branding/clown_logo.png';
-import LumaLogoImage from '@/../public/branding/luma-logo-transparent.png';
+import { LumaLogo } from '@/components/ui/LumaLogo';
 
 interface EditorMobileHeaderProps {
   view: 'welcome' | 'selection' | 'editor';
@@ -118,8 +118,8 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
         ) : (
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <div className="relative size-12 shrink-0 overflow-hidden">
-                <Image src={isLuma ? LumaLogoImage : LogoImage} alt="Logo" fill className="object-contain" priority />
+              <div className={cn("relative shrink-0 overflow-hidden", isLuma ? "size-10" : "size-12")}>
+                {isLuma ? <LumaLogo className="h-full w-full" /> : <Image src={LogoImage} alt="" fill className="object-contain" priority />}
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <h1 className="truncate text-[13px] font-black leading-none tracking-[-0.03em]">{isLuma ? 'Luma Widget' : 'Fusion Widget'}</h1>

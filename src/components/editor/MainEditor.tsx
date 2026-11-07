@@ -32,7 +32,7 @@ import {
   editorFooterPrimaryButtonClass,
 } from './editorSurfaceStyles';
 import LogoImage from '@/../public/branding/clown_logo.png';
-import LumaLogoImage from '@/../public/branding/luma-logo-transparent.png';
+import { LumaLogo } from '@/components/ui/LumaLogo';
 import { convertAiometadataImportToFusion, isAiometadataImportPayload } from '@/lib/aiometadata-import';
 import { convertOmniToFusion } from '@/lib/omni-converter';
 import { shouldPromptForAiometadataManifestSetup } from '@/lib/aiometadata-manifest-detection';
@@ -808,15 +808,8 @@ export function MainEditor() {
 
           {/* Branding Section */}
           <div className="relative group mb-5 sm:mb-7 max-sm:mt-4 text-center flex flex-col items-center">
-            <div className="relative size-28 sm:size-36 flex items-center justify-center select-none">
-              <Image
-                src={isLuma ? LumaLogoImage : LogoImage}
-                alt={isLuma ? "Luma Logo" : "Clown Logo"}
-                width={208}
-                height={208}
-                className="w-full h-full object-contain"
-                priority
-              />
+            <div className={cn("relative size-28 sm:size-36 flex items-center justify-center select-none", isLuma && "mb-3")}>
+              {isLuma ? <LumaLogo className="h-full w-full" /> : <Image src={LogoImage} alt="Clown Logo" width={208} height={208} className="w-full h-full object-contain" priority />}
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2 sm:mb-3 text-center max-sm:max-w-[12ch] leading-[0.95]">
@@ -1175,9 +1168,9 @@ export function MainEditor() {
           <header className="sticky top-0 z-50 hidden sm:block w-full px-4 sm:px-6 py-4">
             <div className="max-w-[1400px] mx-auto">
               <div className="flex items-center justify-between gap-4 h-20 px-4 lg:px-8 rounded-3xl bg-background/60 backdrop-blur-xl border border-border">
-                <div className="flex min-w-0 items-center gap-3 lg:gap-6 group/logo">
-                  <div className="size-14 lg:size-20 relative flex shrink-0 items-center justify-center overflow-hidden transition-all duration-500 group-hover/logo:scale-110 group-hover/logo:rotate-3">
-                    <Image src={isLuma ? LumaLogoImage : LogoImage} alt="Logo" fill className="object-contain" priority />
+                <div className={cn("flex min-w-0 items-center group/logo", isLuma ? "gap-2 lg:gap-3" : "gap-3 lg:gap-6")}>
+                  <div className={cn("relative flex shrink-0 items-center justify-center overflow-hidden", isLuma ? "size-12 lg:size-14" : "size-14 lg:size-20 transition-transform duration-500 group-hover/logo:scale-110 group-hover/logo:rotate-3")}>
+                    {isLuma ? <LumaLogo className="h-full w-full" /> : <Image src={LogoImage} alt="" fill className="object-contain" priority />}
                   </div>
                   <div className="flex min-w-[9.5rem] shrink-0 flex-col -space-y-1">
                     <h1 className="whitespace-nowrap text-sm lg:text-base font-black tracking-tight leading-none">{isLuma ? 'Luma Widget' : 'Fusion Widget'}</h1>

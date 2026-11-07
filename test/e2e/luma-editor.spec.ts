@@ -233,7 +233,13 @@ test('imports a native Luma Home envelope and downloads all genre sections witho
 test('shows the nested page layout without horizontal overflow', async ({ page }, testInfo) => {
   await page.goto('/');
   await page.screenshot({ path: testInfo.outputPath('welcome.png'), animations: 'disabled' });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  await page.screenshot({ path: testInfo.outputPath('welcome-dark.png'), animations: 'disabled' });
+  await page.emulateMedia({ colorScheme: 'light' });
   await page.getByRole('button', { name: 'Load', exact: true }).click();
+  await expect(page.getByTestId('new-widget-button')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('editor-header.png'), animations: 'disabled' });
   const hub = await openMovies(page);
   const layout = hub.getByRole('region', { name: 'Page layout' });
   await expect(layout).toContainText('Folder row');
