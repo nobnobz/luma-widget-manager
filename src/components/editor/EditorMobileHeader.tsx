@@ -118,7 +118,7 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
         ) : (
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <div className={cn("relative shrink-0 overflow-hidden", isLuma ? "size-10" : "size-12")}>
+              <div className={cn("relative shrink-0", isLuma ? "size-10" : "size-12 overflow-hidden")}>
                 {isLuma ? <LumaLogo className="h-full w-full" /> : <Image src={LogoImage} alt="" fill className="object-contain" priority />}
               </div>
               <div className="flex min-w-0 flex-1 flex-col">

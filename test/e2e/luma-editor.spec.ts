@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { starterDocument } from '../../src/lib/luma-document';
 import { documentToEditor } from '../../src/lib/luma-editor-adapter';
 import { mockTemplateRepository } from '../support/app-harness';
@@ -110,6 +110,7 @@ test('creates catalog-free folders in collections, sections and subfolder grids 
   await widget.getByRole('button', { name: /Expand item/i }).filter({ visible: true }).first().click();
   await widget.getByRole('button', { name: 'Edit hub page', exact: true }).click();
   const hub = page.getByRole('dialog').filter({ hasText: 'Folder level 1 of 3' });
+  await hub.getByText(/Explore · 2 folders/).click();
   for (const [location, name] of [['section', 'New section folder'], ['grid', 'New grid folder']] as const) {
     const addButtons = hub.getByRole('button', { name: /^Add folder$/i });
     await (location === 'section' ? addButtons.first() : addButtons.last()).click();
@@ -247,10 +248,11 @@ test('shows the nested page layout without horizontal overflow', async ({ page }
   await layout.scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath('hub-layout.png'), animations: 'disabled' });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await hub.getByText(/Explore · 2 folders/).click();
   await hub.getByRole('button', { name: /Expand item/i }).filter({ visible: true }).first().click();
   await hub.getByRole('button', { name: 'Edit hub page', exact: true }).first().click();
   const nested = page.getByRole('dialog').filter({ hasText: 'Folder level 2 of 3' }).last();
-  await expect(nested.getByRole('region', { name: 'Page layout' })).toContainText('Science fiction');
+  await expect(nested.getByText('Science fiction', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('nested-layout.png'), animations: 'disabled' });
 });
 
@@ -314,4 +316,97 @@ test('retains existing catalogs and nested folders when editing a catalog', asyn
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('fusion-widgets-config') || '{}').widgets?.[0]?.dataSource?.payload?.items?.[0]?.lumaFolder?.sources?.[0]?.contentFilters?.year)).toBe(2024);
   await page.reload();
   expect(await nativePreview(page)).toEqual(expected);
+});
+
+test('reorders page rows and nested folders without losing their contents', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile-chrome', 'Touch reordering is covered separately.');
+  const doc = starterDocument();
+  const folder = doc.collections[0].folders[0];
+  folder.sources = [{ id: 'test-catalog', provider: 'tmdb', title: 'Discover', tmdbSourceType: 'DISCOVER', custom: 'keep' }];
+  folder.blockOrder = [`section:${folder.sections![0].id}`, 'catalog:test-catalog'];
+  const section = folder.sections![0];
+  const config = documentToEditor(doc);
+  await page.addInitScript(value => localStorage.setItem('fusion-widgets-config', JSON.stringify(value)), config);
+  await page.goto('/');
+  const hub = await openMovies(page);
+  const layout = hub.getByRole('region', { name: 'Page layout' });
+  const rowGrip = layout.getByRole('button', { name: 'Reorder Explore', exact: true });
+  await rowGrip.focus();
+  await page.keyboard.press('Space');
+  await expect(rowGrip).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[id^=DndLiveRegion]').filter({ hasText: /moved over droppable area catalog:test-catalog/ })).toBeAttached();
+  await page.keyboard.press('Space');
+  await expect(layout.locator('[data-testid^="page-block-"]').first()).toHaveAttribute('data-testid', 'page-block-catalog:test-catalog');
+  await hub.getByText(/Explore · 2 folders/).click();
+  const genreGrip = hub.getByRole('button', { name: 'Reorder Genres', exact: true }).filter({ visible: true });
+  await genreGrip.focus();
+  await page.keyboard.press('Space');
+  await expect(genreGrip).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[id^=DndLiveRegion]').filter({ hasText: `moved over droppable area ${section.folders[1].id}` })).toBeAttached();
+  await page.keyboard.press('Space');
+  await expect(hub.locator(`[data-testid="folder-card-${section.folders[1].id}"]`)).toBeVisible();
+  const genres = hub.getByTestId(`folder-card-${section.folders[0].id}`);
+  await genres.getByRole('button', { name: /Expand item/i }).filter({ visible: true }).click();
+  await genres.getByRole('button', { name: 'Edit hub page', exact: true }).click();
+  const nested = page.getByRole('dialog').filter({ hasText: 'Folder level 2 of 3' }).last();
+  const deeperGrip = nested.getByRole('button', { name: 'Reorder Science fiction', exact: true }).filter({ visible: true });
+  await deeperGrip.focus();
+  await page.keyboard.press('Space');
+  await expect(deeperGrip).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[id^=DndLiveRegion]').filter({ hasText: `moved over droppable area ${section.folders[0].subfolders![1].id}` })).toBeAttached();
+  await page.keyboard.press('Space');
+  await nested.getByRole('button', { name: 'Done', exact: true }).click();
+  await hub.getByRole('button', { name: 'Done', exact: true }).click();
+  const native = await nativePreview(page);
+  const result = native[0].folders[0];
+  expect(result.blockOrder).toEqual(['catalog:test-catalog', `section:${section.id}`]);
+  expect(result.sections[0].folders.map((f: { title: string }) => f.title)).toEqual(['Decades', 'Genres']);
+  expect(result.sections[0].folders[1].subfolders.map((f: { title: string }) => f.title)).toEqual(['Thriller', 'Science fiction']);
+  expect(result.sources[0]).toMatchObject({ id: 'test-catalog', custom: 'keep' });
+});
+
+test('drags page rows and nested folder cards with the pointer or touch', async ({ page }, testInfo) => {
+  const doc = starterDocument();
+  const folder = doc.collections[0].folders[0];
+  folder.sources = [{ id: 'test-catalog', provider: 'tmdb', title: 'Discover', tmdbSourceType: 'DISCOVER' }];
+  const row = folder.sections![0];
+  folder.blockOrder = [`section:${row.id}`, 'catalog:test-catalog'];
+  const config = documentToEditor(doc);
+  await page.addInitScript(value => localStorage.setItem('fusion-widgets-config', JSON.stringify(value)), config);
+  await page.goto('/');
+  const hub = await openMovies(page);
+  async function drag(source: Locator, target: Locator) {
+    await source.scrollIntoViewIfNeeded();
+    await target.scrollIntoViewIfNeeded();
+    const from = await source.boundingBox();
+    const to = await target.boundingBox();
+    expect(from).not.toBeNull(); expect(to).not.toBeNull();
+    const x = from!.x + from!.width / 2, y = from!.y + from!.height / 2;
+    const endX = to!.x + to!.width / 2, endY = to!.y + to!.height / 2;
+    if (testInfo.project.name === 'mobile-chrome') {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (endX - x) * i / 12, y: y + (endY - y) * i / 12 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach();
+    } else {
+      await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(endX, endY, { steps: 12 }); await page.mouse.up();
+    }
+    // Let dnd-kit's post-drag click suppression expire before the next action.
+    await page.waitForTimeout(150);
+  }
+  const layout = hub.getByRole('region', { name: 'Page layout' });
+  await drag(layout.getByRole('button', { name: 'Reorder Explore', exact: true }), layout.getByRole('button', { name: 'Reorder Discover', exact: true }));
+  await expect(layout.locator('[data-testid^="page-block-"]').first()).toHaveAttribute('data-testid', 'page-block-catalog:test-catalog');
+  await hub.getByText(/Explore · 2 folders/).click();
+  await drag(hub.getByRole('button', { name: 'Reorder Genres', exact: true }).filter({ visible: true }), hub.getByRole('button', { name: 'Reorder Decades', exact: true }).filter({ visible: true }));
+  await expect.poll(async () => hub.locator(`[data-testid="page-block-section:${row.id}"] [data-testid^="folder-card-"]`).first().getAttribute('data-testid')).toBe(`folder-card-${row.folders[1].id}`);
+  await hub.getByRole('button', { name: 'Done', exact: true }).click();
+  const native = await nativePreview(page);
+  expect(native[0].folders[0].blockOrder).toEqual(['catalog:test-catalog', `section:${row.id}`]);
+  expect(native[0].folders[0].sections[0].folders.map((entry: { title: string }) => entry.title)).toEqual(['Decades', 'Genres']);
+  expect(native[0].folders[0].sections[0].folders[1].subfolders.map((entry: { title: string }) => entry.title)).toEqual(['Science fiction', 'Thriller']);
 });

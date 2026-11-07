@@ -808,7 +808,7 @@ export function MainEditor() {
 
           {/* Branding Section */}
           <div className="relative group mb-5 sm:mb-7 max-sm:mt-4 text-center flex flex-col items-center">
-            <div className={cn("relative size-28 sm:size-36 flex items-center justify-center select-none", isLuma && "mb-3")}>
+            <div className={cn("relative size-28 sm:size-36 flex items-center justify-center select-none motion-safe:transition-transform motion-safe:duration-500 motion-safe:hover:scale-105 motion-safe:hover:rotate-3", isLuma && "mb-3")}>
               {isLuma ? <LumaLogo className="h-full w-full" /> : <Image src={LogoImage} alt="Clown Logo" width={208} height={208} className="w-full h-full object-contain" priority />}
             </div>
 
@@ -1169,7 +1169,7 @@ export function MainEditor() {
             <div className="max-w-[1400px] mx-auto">
               <div className="flex items-center justify-between gap-4 h-20 px-4 lg:px-8 rounded-3xl bg-background/60 backdrop-blur-xl border border-border">
                 <div className={cn("flex min-w-0 items-center group/logo", isLuma ? "gap-2 lg:gap-3" : "gap-3 lg:gap-6")}>
-                  <div className={cn("relative flex shrink-0 items-center justify-center overflow-hidden", isLuma ? "size-12 lg:size-14" : "size-14 lg:size-20 transition-transform duration-500 group-hover/logo:scale-110 group-hover/logo:rotate-3")}>
+                  <div className={cn("relative flex shrink-0 items-center justify-center", isLuma ? "size-12 lg:size-14 motion-safe:transition-transform motion-safe:duration-500 motion-safe:group-hover/logo:scale-105 motion-safe:group-hover/logo:rotate-3" : "size-14 lg:size-20 overflow-hidden transition-transform duration-500 group-hover/logo:scale-110 group-hover/logo:rotate-3")}>
                     {isLuma ? <LumaLogo className="h-full w-full" /> : <Image src={LogoImage} alt="" fill className="object-contain" priority />}
                   </div>
                   <div className="flex min-w-[9.5rem] shrink-0 flex-col -space-y-1">

@@ -129,6 +129,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
   onDelete,
   isExpanded,
   onToggleExpand,
+  onDuplicate,
   depth = 1,
 }: {
   item: CollectionItem,
@@ -136,6 +137,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
   index: number,
   onUpdate: (updates: Partial<CollectionItem>) => void,
   onDelete: () => void,
+  onDuplicate?: () => void,
   isExpanded: boolean,
   onToggleExpand: () => void
 }) {
@@ -480,7 +482,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
 
   return (
     <>
-      <div ref={setNodeRef} style={style} className={cn(isDragging && "z-50")}>
+      <div ref={setNodeRef} style={style} data-testid={`folder-card-${item.id}`} className={cn(isDragging && "z-50")}>
         <Card className={cn(
           editorPanelClass,
           "group bg-background/40 dark:bg-white/[0.02] dark:border-white/5 dark:shadow-none max-sm:rounded-[1.15rem] overflow-hidden transition-[border,box-shadow,transform,opacity] duration-300",
@@ -497,7 +499,8 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                 <div
                   {...attributes}
                   {...listeners}
-                  className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted/20 text-muted-foreground/30 active:bg-primary/10 active:text-primary transition-all shrink-0 cursor-grab active:cursor-grabbing grow-0 touch-none select-none"
+                  aria-label={`Reorder ${itemDisplayName}`}
+                  className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted/30 text-muted-foreground/70 active:bg-primary/10 active:text-primary transition-all shrink-0 cursor-grab active:cursor-grabbing grow-0 touch-none select-none"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <GripVertical className="size-4" />
@@ -530,6 +533,8 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
 
                 <div className="w-px h-4 bg-border/40 mx-1.5 shrink-0" />
 
+                {onDuplicate && <Button variant="ghost" size="icon" className={cn("size-9", editorHeaderIconButtonClass)} aria-label={`Duplicate ${itemDisplayName}`} onClick={(e) => { e.stopPropagation(); onDuplicate(); }}><Copy className="size-4" /></Button>}
+
                 <Button
                   variant="ghost"
                   size="icon"
@@ -552,7 +557,8 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                 <div
                   {...attributes}
                   {...listeners}
-                  className="mt-0.5 flex size-[2.125rem] items-center justify-center rounded-xl border border-transparent bg-background/30 text-muted-foreground/34 transition-all cursor-grab active:cursor-grabbing shrink-0 touch-none select-none hover:border-primary/10 hover:text-primary hover:bg-primary/[0.08]"
+                  aria-label={`Reorder ${itemDisplayName}`}
+                  className="mt-0.5 flex size-[2.125rem] items-center justify-center rounded-xl border border-transparent bg-background/30 text-muted-foreground/70 transition-all cursor-grab active:cursor-grabbing shrink-0 touch-none select-none hover:border-primary/10 hover:text-primary hover:bg-primary/[0.08]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <GripVertical className="size-3.5" />
@@ -587,6 +593,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                     >
                       <ChevronRight className="size-4" />
                     </Button>
+                    {onDuplicate && <Button variant="ghost" size="icon" className={cn("size-9", editorHeaderIconButtonClass)} aria-label={`Duplicate ${itemDisplayName}`} onClick={(e) => { e.stopPropagation(); onDuplicate(); }}><Copy className="size-4" /></Button>}
                     <Button
                       variant="ghost"
                       size="icon"
