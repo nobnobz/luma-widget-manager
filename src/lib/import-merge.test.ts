@@ -303,3 +303,13 @@ test('applyImportReview merge keeps missing local items in matched widgets', () 
 
   assert.deepEqual(matchedWidget.dataSource.payload.items.map((item) => item.id), ['item-keep', 'item-local-only']);
 });
+
+test('collection-only title changes remain actionable with unchanged folders', () => {
+  const existing = [createCollectionWidget('hub', 'Original', [createItem('f', 'Movies')])];
+  const incoming = structuredClone(existing); incoming[0].title = 'Renamed';
+  const review = buildImportReviewState(existing, incoming);
+  assert.equal(review.widgetDiffs.hub.status, 'existing');
+  assert.ok(review.widgetDiffs.hub.changes.has('name'));
+  const result = applyImportReview(existing, incoming, review.widgetDiffs, { ...selectAll(review), keepExistingCatalogs: false, applyMode: 'merge' });
+  assert.equal(result.widgets[0].title, 'Renamed');
+});

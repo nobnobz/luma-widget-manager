@@ -12,6 +12,7 @@ async function openMovies(page: Page) {
 }
 async function nativePreview(page: Page) {
   await page.getByTestId('export-button').click();
+  await page.getByRole('button', { name: /^Folder rows \(/ }).click();
   const text = await page.getByTestId('export-preview-textarea').inputValue();
   const native = JSON.parse(text);
   expect(Array.isArray(native)).toBe(true);
@@ -164,6 +165,7 @@ test('downloads a true Home catalog row without a folder wrapper', async ({ page
   const config = { exportType: 'fusionWidgets', exportVersion: 1, widgets: [{ id: 'trending', title: 'Trending Movies', type: 'row.classic', cacheTTL: 1800, limit: 20, presentation: { aspectRatio: 'poster', cardStyle: 'medium', badges: { providers: false, ratings: true } }, dataSource: { kind: 'addonCatalog', sourceType: 'aiometadata', payload: { addonId: 'YOUR_AIOMETADATA', catalogType: 'movie', catalogId: 'popular' } } }] };
   await page.addInitScript(value => localStorage.setItem('fusion-widgets-config', JSON.stringify(value)), config);
   await page.goto('/'); await page.getByTestId('export-button').click();
+  await page.getByRole('button', { name: /^Catalog rows \(/ }).click();
   const exported = JSON.parse(await page.getByTestId('export-preview-textarea').inputValue());
   expect(exported.widgets[0].type).toBe('row.classic');
   expect(exported.widgets[0].dataSource.payload.catalogId).toBe('movie::popular');
@@ -200,4 +202,31 @@ test('builds catalog sections and filtered native catalogs through the hub edito
   const restored = await nativePreview(page);
   expect(restored[0].folders[0].catalogGroups).toEqual(folder.catalogGroups);
   expect(restored[0].folders[0].sources).toEqual(folder.sources);
+});
+
+test('imports a native Luma Home envelope and downloads all genre sections without flattening', async ({ page }) => {
+  const doc = starterDocument();
+  const hub = doc.collections[0]; hub.id = 'home-genres'; hub.title = 'Meine Genres';
+  hub.folders[0].title = 'Meine Filme';
+  hub.folders[0].catalogGroups = [{ id: 'science', title: 'Entdecken', catalogIDs: ['catalog'] }];
+  hub.folders[0].sources = [{ id: 'catalog', provider: 'tmdb', tmdbSourceType: 'DISCOVER', title: 'Neue Welten', filters: { withGenres: '878' } }];
+  const envelope = { exportType: 'fusionWidgets', exportVersion: 1, requiredAddons: [], widgets: [{ id: 'collection.home-genres', title: hub.title, type: 'collection.row', lumaCollection: JSON.stringify(hub), dataSource: { kind: 'collection', payload: { items: hub.folders.map(folder => ({ id: folder.id, title: folder.title, dataSources: [] })) } } }] };
+  await page.goto('/');
+  await page.getByTestId('welcome-import-textarea').fill(JSON.stringify(envelope));
+  await page.getByTestId('welcome-load-configuration').click();
+  await expect(page.getByTestId('widget-card-home-genres')).toContainText('Meine Genres');
+  const editor = await openMovies(page);
+  await expect(editor).toContainText('Neue Welten');
+  await editor.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByTestId('export-button').click();
+  const exported = JSON.parse(await page.getByTestId('export-preview-textarea').inputValue());
+  const native = JSON.parse(exported.widgets[0].lumaCollection);
+  expect(native.title).toBe('Meine Genres');
+  expect(native.folders[0].title).toBe('Meine Filme');
+  expect(native.folders[0].sections[0].folders[0].subfolders[0].title).toBe('Science fiction');
+  expect(native.folders[0].catalogGroups[0].title).toBe('Entdecken');
+  expect(native.folders[0].sources[0].title).toBe('Neue Welten');
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: /^Download(?: JSON)?$/ }).filter({ visible: true }).click();
+  expect((await downloading).suggestedFilename()).toBe('Luma-Home.json');
 });

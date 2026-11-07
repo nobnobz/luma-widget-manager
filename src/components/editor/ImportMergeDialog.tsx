@@ -413,7 +413,7 @@ export function ImportMergeDialog({ open, onOpenChange, initialJson, initialFile
               image: diff.changes.has('image')
             };
           }
-          newWidgetSelected[w.id] = w.type === 'row.classic' ? diff.changes.size > 0 : hasUpdatedItems;
+          newWidgetSelected[w.id] = diff.changes.size > 0 || hasUpdatedItems;
         } else {
           // Filter by specific change type
           const isCatalogMode = mode.includes('catalogs');

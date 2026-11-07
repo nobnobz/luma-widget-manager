@@ -530,6 +530,7 @@ function normalizeWidget(input: unknown, index: number, options: NormalizeOption
       title,
       hideTitle,
       type,
+      ...(isRecord(widget.lumaWidget) ? { lumaWidget: structuredClone(widget.lumaWidget) } : {}),
       cacheTTL: typeof widget.cacheTTL === 'number' ? widget.cacheTTL : 3600,
       limit: typeof widget.limit === 'number' ? widget.limit : 20,
       presentation: {

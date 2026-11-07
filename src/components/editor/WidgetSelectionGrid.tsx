@@ -316,7 +316,7 @@ function WidgetSelectionGridComponent({
     emptyTrash,
   } = useConfig();
   const [exportMode, setExportMode] = useState<'luma' | 'fusion' | 'omni' | 'aiometadata'>(isLuma ? 'luma' : 'fusion');
-  const [lumaPart, setLumaPart] = useState<'folders' | 'catalogs'>('folders');
+  const [lumaPart, setLumaPart] = useState<'home' | 'folders' | 'catalogs'>('home');
   const lumaExportParts = useMemo(() => buildLumaExportParts(widgets, manifestUrl), [widgets, manifestUrl]);
   const activeLumaExport = lumaExportParts.find(part => part.id === lumaPart) ?? lumaExportParts[0];
   const [searchQuery, setSearchQuery] = useState('');
@@ -2458,7 +2458,7 @@ function WidgetSelectionGridComponent({
           </div>
         </DialogHeader>
 
-        {exportMode === 'luma' && lumaExportParts.length > 1 && <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-3 text-sm"><p>Luma imports folder rows and catalog rows separately. Download both files, then arrange their order in Luma.</p><div role="group" aria-label="Rows to export" className="flex flex-wrap gap-2">{lumaExportParts.map(part => <Button key={part.id} variant={activeLumaExport?.id === part.id ? 'default' : 'outline'} aria-pressed={activeLumaExport?.id === part.id} onClick={() => { setLumaPart(part.id); setExportActionError(null); }}>{part.label} ({part.count})</Button>)}</div></div>}
+        {exportMode === 'luma' && lumaExportParts.length > 1 && <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-3 text-sm"><p>Complete Home preserves names, catalog sections, genre folders and nested collections in one file. Use a current Luma build with native Home import support. Folder rows and Catalog rows are compatibility exports.</p><div role="group" aria-label="Rows to export" className="flex flex-wrap gap-2">{lumaExportParts.map(part => <Button key={part.id} variant={activeLumaExport?.id === part.id ? 'default' : 'outline'} aria-pressed={activeLumaExport?.id === part.id} onClick={() => { setLumaPart(part.id); setExportActionError(null); }}>{part.label} ({part.count})</Button>)}</div></div>}
 
         <div className="mt-2.5 flex justify-end max-sm:mt-5 max-sm:justify-end w-full">
           <div className="flex flex-wrap sm:w-auto rounded-2xl border border-border/10 bg-muted/20 p-1.5">
@@ -2701,7 +2701,7 @@ function WidgetSelectionGridComponent({
                   </div>
                 </div>
 
-                {exportMode === 'luma' && <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left text-xs leading-relaxed"><strong>Import into Luma · {activeLumaExport?.label}</strong>{activeLumaExport?.id === 'catalogs' ? <p className="mt-2">Import this file using Luma’s Fusion import. These catalogs appear directly as poster rows on Home. Install or connect the add-ons used by your catalogs.</p> : <><p className="mt-2">iOS: Collection Backups → Import. macOS: Collections → Import. Install the add-ons used by your catalogs.</p><p className="mt-2 text-muted-foreground">The current Luma iOS, macOS and tvOS code supports nested hub pages and catalog sections.</p></>}</div>}
+                {exportMode === 'luma' && <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left text-xs leading-relaxed"><strong>Import into Luma · {activeLumaExport?.label}</strong>{activeLumaExport?.id === 'home' ? <p className="mt-2">Import Luma-Home.json through Luma’s Home Import. The native configuration includes all sections, nested folders, catalog names, filters and repeated catalogs. Requires Luma’s native Home extension support; older builds flatten Fusion rows. Connect each required add-on when prompted.</p> : activeLumaExport?.id === 'catalogs' ? <p className="mt-2">Import this file using Luma’s Fusion import. These catalogs appear directly as poster rows on Home. Install or connect the add-ons used by your catalogs.</p> : <><p className="mt-2">iOS: Collection Backups → Import. macOS: Collections → Import. Install the add-ons used by your catalogs.</p><p className="mt-2 text-muted-foreground">The current Luma iOS, macOS and tvOS code supports nested hub pages and catalog sections.</p></>}</div>}
                 {exportMode === 'fusion' ? (
                   <div className="w-full max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-4 text-left">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary/80">

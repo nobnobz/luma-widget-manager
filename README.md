@@ -11,9 +11,10 @@ The [Fusion Widget Manager](https://github.com/nobnobz/fusion-widget-manager) in
 3. Open a folder and choose **Edit hub page** to add horizontal folder rows and a closing subfolder grid. Folder cards inside those rows use the same editor. Luma supports three folder levels.
 4. In **Edit hub page → Catalogs & sections**, create add-on, TMDB, Trakt-list or Jellyfin catalog copies. Set media/genre/release filters, local order, year, minimum rating and ranking numbers. TMDB Discover has its own filter fields; advanced provider JSON preserves additional options. Create **Catalog sections**, name them and assign catalogs to show headings and jump links. A catalog belongs to one section at a time.
 5. Arrange catalog and folder rows in **Row order**. Duplicate or reorder subfolders, restore deleted folders and rows and undo page changes. Folder rows can follow a server collection ID from a Luma export, with stored fallback folders. Row headings, cover animation, hero video, title logos and automatic catalog artwork are editable; appearance options remain in the page’s optional appearance section.
-6. **Export → Luma → Folder rows** downloads a native `luma-collections.json` array, including nested structure, per-source options, animation fields and unknown imported provider fields. Incomplete catalogs block export instead of being dropped.
+6. **Export → Luma → Complete Home** downloads one `Luma-Home.json` using the current local Luma Home contract (`lumaCollection` / `lumaWidget`). Import it through Home → Import in a Luma build with native Home extension support. It retains nested sections, genre collections, renamed rows/catalogs, filters, repeated catalog instances and unknown native fields. Luma Home exports can be imported back into the manager without flattening their native configurations.
+7. **Export → Luma → Folder rows** downloads a native `luma-collections.json` array, including nested structure, per-source options, animation fields and unknown imported provider fields. Incomplete catalogs block export instead of being dropped.
 
-Empty starters contain no movie lists or finished artwork. Add your real catalogs and covers before publishing a UME pack. **Catalog row** shows one catalog directly as a poster row on Home and exports as `luma-catalog-rows.json` through Luma’s existing Fusion importer. Mixed layouts require both files; arrange their order in Luma after import. **Hub** means the page behind a folder, containing catalog rows, folder rows and a folder grid.
+Empty starters contain no movie lists or finished artwork. Add your real catalogs and covers before publishing a UME pack. **Catalog row** shows one catalog directly as a poster row on Home and exports as `luma-catalog-rows.json` through Luma’s existing Fusion importer. The compatibility exports require both files for mixed layouts; arrange their order in Luma after import. Complete Home handles both kinds in one file. **Hub** means the page behind a folder, containing catalog rows, folder rows and a folder grid.
 
 ## Animated covers and tags
 
@@ -26,7 +27,9 @@ The inspected Luma tvOS code plays animated focus covers. Other platforms preser
 
 ## Import into Luma
 
-The native export is a **bare collection array**, required by the current iOS backup importer and also accepted by macOS/tvOS.
+**Complete Home** requires the native Home extensions implemented in local Luma commit `02cd3c068` or a later build containing that change. Older Fusion importers flatten the outer rows and cannot retain the complete tree. The manager cannot update an installed Luma app.
+
+The **Folder rows** compatibility export is a **bare collection array**, accepted by iOS, macOS and tvOS.
 
 - iOS: **Collection Backups → Import**.
 - macOS: Collections import.

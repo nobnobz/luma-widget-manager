@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Read and write Luma native Home extensions without flattening nested genre collections, folder sections, catalog groups, renamed titles or per-widget configuration. Complete Home is the default Luma export; compatibility files remain available. Requires a Luma build with native Home extension support.
+- Detect collection-only and case-only renames during import review; keep imported native page structure and independent catalog copies when preserving local catalogs. Materialize missing catalog instance IDs recursively for older drafts.
+
 ## [0.6.2] - 2026-05-18
 ### Changed
 - **Versioning**: Updated the UI release badge and package version to `v0.6.2`.

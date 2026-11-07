@@ -66,9 +66,43 @@ export function isNativeDocument(value: unknown): boolean {
   return Array.isArray(value) || (!!value && typeof value === 'object' && 'collections' in value);
 }
 export function normalizeLumaImport(value: unknown): unknown {
-  return isNativeDocument(value) ? documentToEditor(importDocument(value).document) : value;
+  if (isNativeDocument(value)) return documentToEditor(importDocument(value).document);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const envelope = value as Record<string, unknown>;
+  if (envelope.exportType !== 'fusionWidgets' || !Array.isArray(envelope.widgets)) return value;
+  if (envelope.exportVersion !== 1) throw new Error('Only Fusion export version 1 is supported.');
+  return { ...envelope, widgets: envelope.widgets.map(raw => {
+    const widget = raw as Record<string, unknown>;
+    if (widget.lumaCollection !== undefined) {
+      if (widget.type !== 'collection.row') throw new Error('Invalid native collection extension.');
+      const hub = readExtension(widget.lumaCollection) as unknown as Hub;
+      const source = widget.dataSource as { payload?: { items?: { id: string }[] } } | undefined;
+      const selected = source?.payload?.items;
+      if (!Array.isArray(selected)) throw new Error('Invalid native collection folder selection.');
+      hub.folders = hub.folders.filter(folder => selected.some(item => item.id === folder.id));
+      const projected = documentToEditor(importDocument([hub]).document).widgets[0];
+      return projected;
+    }
+    if (widget.lumaWidget !== undefined) {
+      if (widget.type !== 'row.classic') throw new Error('Invalid native widget extension.');
+      const native = readExtension(widget.lumaWidget);
+      if (typeof native.id !== 'string' || typeof native.title !== 'string' || !native.source) throw new Error('Invalid native widget configuration.');
+      const identity = readExtension(native.source);
+      if (![identity.addonID, identity.mediaType, identity.catalogID].every(v => typeof v === 'string' && v.length > 0)) throw new Error('Invalid native widget source.');
+      return { ...widget, id: native.id, title: native.title || widget.title, lumaWidget: native,
+        dataSource: { kind: 'addonCatalog', sourceType: 'aiometadata', payload: { addonId: identity.addonID, catalogType: identity.mediaType, catalogId: identity.catalogID } } };
+    }
+    return widget;
+  }) };
+}
+function readExtension(value: unknown): Record<string, unknown> {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid native Luma configuration.');
+  return structuredClone(parsed as Record<string, unknown>);
 }
 function validateNestedSources(folder: Folder): Folder {
+  // Materialize instance IDs even for drafts saved before native source editing.
+  folder = folderToItem(folder).lumaFolder!;
   for (const source of folder.sources ?? []) {
     if (source.provider === 'unsupported-editor-source') throw new Error('Connect this list through AIOMetadata before exporting for Luma.');
   }
@@ -93,7 +127,7 @@ export function exportEditorForLuma(widgets: Widget[], manifestUrl = ''): string
 }
 
 export interface LumaExportPart {
-  id: 'folders' | 'catalogs';
+  id: 'home' | 'folders' | 'catalogs';
   label: string;
   filename: string;
   count: number;
@@ -110,6 +144,7 @@ export function buildLumaExportParts(widgets: Widget[], manifestUrl = ''): LumaE
     try { parts.push({ id, label, filename, count, text: make() }); }
     catch (error) { parts.push({ id, label, filename, count, text: '', error: error instanceof Error ? error.message : 'Export failed.' }); }
   }
+  if (widgets.length) part('home', 'Complete Home', 'Luma-Home.json', widgets.length, () => exportLumaHome(widgets, manifestUrl));
   if (folders.length) part('folders', 'Folder rows', 'luma-collections.json', folders.length, () => exportEditorForLuma(folders, manifestUrl));
   if (catalogs.length) part('catalogs', 'Catalog rows', 'luma-catalog-rows.json', catalogs.length, () => {
     if (catalogs.length > 128) throw new Error('Luma accepts at most 128 catalog rows per Fusion import.');
@@ -118,6 +153,7 @@ export function buildLumaExportParts(widgets: Widget[], manifestUrl = ''): LumaE
     const catalogRoutes = new Set<string>();
     const rows = catalogs.map((widget, index) => {
       if (widget.type !== 'row.classic') throw new Error('Expected a catalog row.');
+      if (widget.lumaWidget) throw new Error('This row has native Luma settings. Choose Complete Home to preserve them.');
       for (const value of [widget.id, widget.title]) {
         if (!value.trim() || value.length > 1024 || [...value].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error('Every catalog row needs a valid title and ID.');
       }
@@ -180,11 +216,73 @@ export function applyAnimatedCovers(widgets: Widget[], covers: { title: string; 
 }
 
 export function assertLegacyExportCompatible(widgets: Widget[]): void {
-  for (const widget of widgets) if (widget.type === 'collection.row') for (const item of widget.dataSource.payload.items) {
-    const folder = item.lumaFolder;
-    const hasNativeOptions = item.dataSources.some(s => s.kind === 'addonCatalog' && Object.keys(s.lumaSource ?? {}).some(key => !['id','provider','addonId','type','catalogId'].includes(key)));
-    if (hasNativeOptions || folder && ((folder.sections?.length ?? 0) > 0 || (folder.subfolders?.length ?? 0) > 0 || (folder.catalogGroups?.length ?? 0) > 0 || (folder.sources ?? []).some(s => s.provider && s.provider !== 'addon' || Object.keys(s).some(key => !['id','provider','addonId','type','catalogId'].includes(key))))) {
-      throw new Error('This setup contains Luma hub pages or native sources. Choose Luma export to preserve them.');
+  for (const widget of widgets) {
+    if (widget.lumaWidget) throw new Error('This setup contains native Luma widgets. Choose Luma export to preserve them.');
+    if (widget.type === 'collection.row') for (const item of widget.dataSource.payload.items) {
+      const folder = item.lumaFolder;
+      const hasNativeOptions = item.dataSources.some(s => s.kind === 'addonCatalog' && Object.keys(s.lumaSource ?? {}).some(key => !['id','provider','addonId','type','catalogId'].includes(key)));
+      if (hasNativeOptions || folder && ((folder.sections?.length ?? 0) > 0 || (folder.subfolders?.length ?? 0) > 0 || (folder.catalogGroups?.length ?? 0) > 0 || (folder.sources ?? []).some(s => s.provider && s.provider !== 'addon' || Object.keys(s).some(key => !['id','provider','addonId','type','catalogId'].includes(key))))) {
+        throw new Error('This setup contains Luma hub pages or native sources. Choose Luma export to preserve them.');
+      }
     }
   }
+}
+
+/** Mirrors LumaCore HomeLayoutExport's guided, lossless Home contract. */
+export function exportLumaHome(widgets: Widget[], manifestUrl = ''): string {
+  if (!widgets.length || widgets.length > 128) throw new Error('Select 1–128 Home rows for a Luma import.');
+  const dependencies = new Set<string>();
+  let folderCount = 0, sourceCount = 0;
+  const ids = new Set<string>();
+  function validText(value: unknown, limit = 1024): value is string {
+    return typeof value === 'string' && !!value.trim() && value.length <= limit && ![...value].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127);
+  }
+  function reference(source: CatalogSource) {
+    const { addonId, type, catalogId } = source;
+    if (!validText(addonId, 4096) || !validText(type) || !validText(catalogId)) throw new Error('A catalog is incomplete or has an invalid route.');
+    const dependency = lumaDependency(addonId);
+    dependencies.add(dependency); sourceCount++;
+    return { kind: 'addonCatalog', payload: { addonId: dependency, type, catalogId } };
+  }
+  function references(folder: Folder): ReturnType<typeof reference>[] {
+    return [...(folder.sources ?? []).filter(s => s.provider === 'addon').map(reference),
+      ...(folder.sections ?? []).flatMap(s => s.folders.flatMap(references)),
+      ...(folder.subfolders ?? []).flatMap(references)];
+  }
+  const rows = widgets.map((widget, position) => {
+    if (!validText(widget.id, widget.type === 'row.classic' ? 128 : 1024) || !validText(widget.title)) throw new Error('Every Home row needs a valid ID and title.');
+    if (ids.has(widget.id)) throw new Error('Duplicate Home row ID.');
+    ids.add(widget.id);
+    if (widget.type === 'collection.row') {
+      const hub = JSON.parse(exportEditorForLuma([widget], manifestUrl))[0] as Hub;
+      return { id: `collection.${hub.id}`, title: hub.title, hideTitle: hub.hideTitle, type: 'collection.row',
+        dataSource: { kind: 'collection', payload: { items: hub.folders.map(folder => {
+          folderCount++;
+          const http = (url: unknown) => typeof url === 'string' && /^https?:\/\//i.test(url) ? url : undefined;
+          return { id: folder.id, title: folder.title, hideTitle: folder.hideTitle,
+            imageAspect: folder.tileShape === 'POSTER' ? 'poster' : folder.tileShape === 'SQUARE' ? 'square' : 'wide',
+            imageURL: http(folder.coverImageUrl), animationURL: http(folder.focusVideoUrl), backgroundURL: http(folder.heroBackdropUrl),
+            dataSources: references(folder) };
+        }) } }, lumaCollection: JSON.stringify(hub) };
+    }
+    if (widget.dataSource.kind === 'addonCatalog' && Object.keys(widget.dataSource.lumaSource ?? {}).some(key => !['id', 'provider', 'addonId', 'type', 'catalogId'].includes(key))) {
+      throw new Error(`“${widget.title}” contains catalog source options. Keep this catalog inside a hub to preserve them, or import its native Luma Home widget configuration.`);
+    }
+    const source = sourceToNative(widget.dataSource, position);
+    if (manifestUrl && source.addonId === manifestUrl) source.addonId = 'preset:aiometadata';
+    const native = { ...widget.lumaWidget, id: widget.id, title: widget.title,
+      source: { ...(widget.lumaWidget?.source as object ?? {}), addonID: source.addonId, mediaType: source.type, catalogID: source.catalogId, collectionID: '' },
+      extras: widget.lumaWidget?.extras ?? {}, enabled: widget.lumaWidget?.enabled ?? true, position };
+    return { id: `widget.${widget.id}`, title: widget.title, type: 'row.classic', dataSource: reference(source), lumaWidget: JSON.stringify(native) };
+  });
+  if (folderCount > 2000 || sourceCount > 5000 || dependencies.size > 32) throw new Error('Luma import limits exceeded (2,000 folders, 5,000 sources or 32 add-ons).');
+  const text = JSON.stringify({ exportType: 'fusionWidgets', exportVersion: 1, requiredAddons: [...dependencies].sort(), widgets: rows }, null, 2);
+  if (new TextEncoder().encode(text).length > 4 * 1024 * 1024) throw new Error('The file exceeds 4 MB.');
+  return text;
+}
+
+export function lumaDependency(addonID: string): string {
+  const bytes = new TextEncoder().encode(addonID);
+  const encoded = btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join('')).replaceAll('/', '_').replaceAll('+', '-');
+  return `https://layout.luma.invalid/${encoded}/manifest.json`;
 }

@@ -111,6 +111,7 @@ export interface Presentation {
 
 export interface BaseWidget {
   lumaHub?: Hub;
+  lumaWidget?: Record<string, unknown>;
   id: string;
   title: string;
   hideTitle?: boolean;

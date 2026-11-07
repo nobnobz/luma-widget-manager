@@ -114,10 +114,10 @@ export function diffRowClassic(
   const incomingFP = getCatalogFingerprint([incoming.dataSource]);
   const existingFP = getCatalogFingerprint([existing.dataSource]);
 
-  if (normalizeNameKey(incoming.title) !== normalizeNameKey(existing.title)) {
+  if (incoming.title !== existing.title) {
     changes.add('name');
   }
-  if (incomingFP !== existingFP) {
+  if (incomingFP !== existingFP || JSON.stringify(incoming.lumaWidget) !== JSON.stringify(existing.lumaWidget)) {
     changes.add('catalogs');
   }
 
@@ -262,7 +262,7 @@ function computeCollectionItemDiff(
   claimedExistingItemKeys.add(matchedRef.key);
 
   const changes = new Set<ImportChangeField>();
-  if (normalizeNameKey(matchedRef.item.name) !== normalizeNameKey(incomingItem.name)) {
+  if (matchedRef.item.name !== incomingItem.name) {
     changes.add('name');
   }
   if (getItemImageChanged(matchedRef.item, incomingItem)) {
@@ -378,12 +378,15 @@ export function buildImportReviewState(existingWidgets: Widget[], incomingWidget
       const reconcileRemovals = matchedWidget.dataSource.payload.items
         .filter((item) => !matchedExistingItemIdsInTarget.has(item.id))
         .map((item) => item.id);
-      const collectionSettingsChanged = !!incomingWidget.lumaHub && (JSON.stringify({ ...incomingWidget.lumaHub, folders: undefined }) !== JSON.stringify({ ...matchedWidget.lumaHub, folders: undefined }) || incomingWidget.title !== matchedWidget.title);
-      const hasActionableItems = collectionSettingsChanged || Object.values(itemDiffs).some((itemDiff) => itemDiff.status !== 'unchanged')
+      const collectionSettingsChanged = JSON.stringify({ ...incomingWidget.lumaHub, folders: undefined }) !== JSON.stringify({ ...matchedWidget.lumaHub, folders: undefined });
+      const collectionChanges = new Set<ImportChangeField>();
+      if (incomingWidget.title !== matchedWidget.title || incomingWidget.hideTitle !== matchedWidget.hideTitle) collectionChanges.add('name');
+      if (collectionSettingsChanged) collectionChanges.add('catalogs');
+      const hasActionableItems = collectionChanges.size > 0 || Object.values(itemDiffs).some((itemDiff) => itemDiff.status !== 'unchanged')
         || reconcileRemovals.length > 0;
       widgetDiffs[incomingWidget.id] = {
         status: hasActionableItems ? 'existing' : 'unchanged',
-        changes: new Set<ImportChangeField>(),
+        changes: collectionChanges,
         itemDiffs,
         existingWidget: matchedWidget,
         matchStrategy: matchedWidgetResult.strategy,
@@ -465,19 +468,35 @@ function updateMovedOrExistingItem(
     if (keepExistingCatalogs) {
       const existingKeys = new Set(
         (nextItem.dataSources || []).map((ds: WidgetDataSource) =>
-          ds.sourceType === 'aiometadata'
+          ds.kind === 'addonCatalog' && ds.lumaSource?.id
+            ? `native::${ds.lumaSource.id}`
+            : ds.sourceType === 'aiometadata'
             ? `${ds.sourceType}::${ds.payload?.catalogId}::${ds.payload?.catalogType}`
             : `${ds.sourceType}::${JSON.stringify(ds.payload)}`
         )
       );
       const toAdd = (incomingItem.dataSources || []).filter((ds: WidgetDataSource) => {
-        const key = ds.sourceType === 'aiometadata'
+        const key = ds.kind === 'addonCatalog' && ds.lumaSource?.id
+          ? `native::${ds.lumaSource.id}`
+          : ds.sourceType === 'aiometadata'
           ? `${ds.sourceType}::${ds.payload?.catalogId}::${ds.payload?.catalogType}`
           : `${ds.sourceType}::${JSON.stringify(ds.payload)}`;
         return !existingKeys.has(key);
       });
       if (toAdd.length > 0) {
         nextItem.dataSources = [...(nextItem.dataSources || []), ...toAdd];
+      }
+      if (incomingItem.lumaFolder) {
+        const incoming = structuredClone(incomingItem.lumaFolder);
+        const sourceIDs = new Set((incoming.sources ?? []).map(s => s.id));
+        incoming.sources = [...(incoming.sources ?? []), ...(nextItem.lumaFolder?.sources ?? []).filter(s => !s.id || !sourceIDs.has(s.id))];
+        nextItem.lumaFolder = incoming;
+        // Native IDs are catalog instances: take the imported configuration for
+        // the same instance, while retaining other local instances.
+        const importedSources = new Map(structuredClone(incomingItem.dataSources).flatMap(source =>
+          source.kind === 'addonCatalog' && source.lumaSource?.id ? [[source.lumaSource.id, source] as const] : []));
+        nextItem.dataSources = nextItem.dataSources.map(s => s.kind === 'addonCatalog' && s.lumaSource?.id
+          ? importedSources.get(s.lumaSource.id) ?? s : s);
       }
     } else {
       nextItem.dataSources = cloneItem(incomingItem).dataSources;
@@ -563,6 +582,7 @@ export function applyImportReview(
 
       if (updates?.name && diff.changes.has('name')) {
         existingWidget.title = incomingWidget.title;
+        existingWidget.hideTitle = incomingWidget.hideTitle;
         widgetChanged = true;
       }
       if (updates?.image && diff.changes.has('image')) {
@@ -575,6 +595,7 @@ export function applyImportReview(
       }
       if (updates?.catalogs && diff.changes.has('catalogs') && !selection.keepExistingCatalogs) {
         existingWidget.dataSource = cloneWidget(incomingWidget as RowClassicWidget).dataSource;
+        existingWidget.lumaWidget = structuredClone(incomingWidget.lumaWidget);
         widgetChanged = true;
       }
 
@@ -644,7 +665,7 @@ export function applyImportReview(
     }
 
     const targetWidget = ensureCollectionWidget(finalWidgets[targetWidgetIdx]!);
-    if (incomingCollectionWidget.lumaHub) {
+    if (incomingCollectionWidget.lumaHub || diff.changes.has('name')) {
       targetWidget.lumaHub = structuredClone(incomingCollectionWidget.lumaHub);
       targetWidget.title = incomingCollectionWidget.title;
       targetWidget.hideTitle = incomingCollectionWidget.hideTitle;

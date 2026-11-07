@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyAnimatedCovers, buildLumaExportParts, assertLegacyExportCompatible, cloneFolder, documentToEditor, editorToDocument, exportEditorForLuma, folderToItem, itemToDraftFolder } from './luma-editor-adapter';
+import { applyAnimatedCovers, buildLumaExportParts, exportLumaHome, normalizeLumaImport, lumaDependency, assertLegacyExportCompatible, cloneFolder, documentToEditor, editorToDocument, exportEditorForLuma, folderToItem, itemToDraftFolder } from './luma-editor-adapter';
 import { starterDocument } from './luma-document';
 import { normalizeFusionConfigDetailed, normalizeLoadedState } from './widget-domain';
 import { applyImportReview, buildImportReviewState, getImportItemSelectionKey } from './import-merge';
@@ -68,7 +68,7 @@ function catalogRow(id = 'trending', catalogId = 'popular') {
 test('mixed layouts export real poster rows separately from lossless nested folder rows', () => {
   const config = documentToEditor(starterDocument());
   config.widgets.push(catalogRow());
-  const parts = buildLumaExportParts(config.widgets, 'https://example.com/manifest.json');
+  const parts = buildLumaExportParts(config.widgets, 'https://example.com/manifest.json').filter(p => p.id !== 'home');
   assert.equal(parts.length, 2);
   const folders = JSON.parse(parts[0].text), catalogs = JSON.parse(parts[1].text);
   assert.equal(folders[0].folders[0].sections[0].folders[0].subfolders[0].title, 'Science fiction');
@@ -82,16 +82,16 @@ test('mixed layouts export real poster rows separately from lossless nested fold
 test('invalid catalog rows do not block the independent folder export', () => {
   const widgets = documentToEditor(starterDocument()).widgets;
   widgets.push(catalogRow('empty', ''));
-  const parts = buildLumaExportParts(widgets);
+  const parts = buildLumaExportParts(widgets).filter(p => p.id !== 'home');
   assert.ok(parts[0].text); assert.equal(parts[0].error, undefined);
   assert.match(parts[1].error!, /incomplete/); assert.equal(parts[1].text, '');
 });
 test('catalog export rejects duplicate routes and native options rather than losing behavior', () => {
-  assert.match(buildLumaExportParts([catalogRow('one'), catalogRow('two')])[0].error!, /repeats a catalog/);
+  assert.match(buildLumaExportParts([catalogRow('one'), catalogRow('two')]).find(p => p.id === 'catalogs')!.error!, /repeats a catalog/);
   const row = { ...catalogRow(), dataSource: { ...catalogRow().dataSource, lumaSource: { provider: 'addon', genre: 'Comedy' } } };
-  assert.match(buildLumaExportParts([row])[0].error!, /cannot preserve/);
+  assert.match(buildLumaExportParts([row]).find(p => p.id === 'catalogs')!.error!, /cannot preserve/);
   const invalid = catalogRow(); invalid.dataSource.payload.addonId = 'org.example';
-  assert.match(buildLumaExportParts([invalid])[0].error!, /manifest URL/);
+  assert.match(buildLumaExportParts([invalid]).find(p => p.id === 'catalogs')!.error!, /manifest URL/);
 });
 
 test('catalog sections and independent catalog copies survive persistence, cloning and export', () => {
@@ -155,4 +155,87 @@ test('legacy export checks current catalog edits even before a native folder is 
   if (source.kind !== 'addonCatalog') throw new Error('Expected add-on');
   source.lumaSource = { ...source.lumaSource, provider: 'addon', contentFilters: { minimumRating: 8 } };
   assert.throws(() => assertLegacyExportCompatible([widget]), /Choose Luma/);
+});
+
+test('complete Home mirrors native Luma extensions and round trips genre collections and renamed catalogs', () => {
+  const doc = starterDocument();
+  const hub = doc.collections[0]; hub.title = 'Meine Startseite';
+  const movies = hub.folders[0]; movies.title = 'Meine Filme';
+  const genre = movies.sections![0].folders[0].subfolders![0];
+  genre.title = 'Weltraum';
+  genre.sources = [{ id: 'scifi', provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'popular', title: 'Neu im All', genre: 'Science Fiction', custom: { retain: true } }];
+  genre.catalogGroups = [{ id: 'group', title: 'Meine Auswahl', catalogIDs: ['scifi'] }];
+  const widgets = documentToEditor(doc).widgets;
+  const row: import('./types/widget').RowClassicWidget = catalogRow('custom');
+  row.lumaWidget = { id: 'custom', title: 'Old', extras: { language: 'de' }, enabled: false, genre: 'Drama', filters: { minimumRating: 7 }, future: { keep: true } };
+  widgets.push(row, { ...structuredClone(row), id: 'copy', title: 'Andere Bezeichnung' });
+  const before = structuredClone(widgets);
+  const exported = JSON.parse(exportLumaHome(widgets, 'https://example.com/manifest.json'));
+  assert.equal(exported.widgets.length, 3);
+  assert.equal(typeof exported.widgets[0].lumaCollection, 'string');
+  const native = JSON.parse(exported.widgets[0].lumaCollection);
+  assert.equal(native.folders[0].sections[0].folders[0].subfolders[0].sources[0].title, 'Neu im All');
+  assert.equal(exported.widgets[0].dataSource.payload.items[0].dataSources.length, 1);
+  assert.equal(exported.widgets[0].dataSource.payload.items[0].dataSources[0].payload.addonId, lumaDependency('preset:aiometadata'));
+  const imported = normalizeFusionConfigDetailed(normalizeLumaImport(exported)).config.widgets;
+  assert.equal(imported[0].title, 'Meine Startseite');
+  const folder = editorToDocument([imported[0]]).collections[0].folders[0].sections![0].folders[0].subfolders![0];
+  assert.equal(folder.title, 'Weltraum'); assert.deepEqual(folder.catalogGroups, genre.catalogGroups);
+  assert.deepEqual(folder.sources, genre.sources);
+  assert.equal(imported[2].title, 'Andere Bezeichnung');
+  assert.equal(imported[1].lumaWidget!.enabled, false);
+  assert.deepEqual(imported[1].lumaWidget!.future, { keep: true });
+  const again = JSON.parse(exportLumaHome(imported));
+  assert.deepEqual(again.requiredAddons, exported.requiredAddons);
+  assert.deepEqual(widgets, before);
+});
+
+test('native extension imports respect selected folders and reject corrupt payloads', () => {
+  const exported = JSON.parse(exportLumaHome(documentToEditor(starterDocument()).widgets));
+  const row = exported.widgets[0]; row.dataSource.payload.items = row.dataSource.payload.items.slice(0, 1);
+  const widgets = normalizeFusionConfigDetailed(normalizeLumaImport(exported)).config.widgets;
+  assert.equal(editorToDocument(widgets).collections[0].folders.length, 1);
+  row.lumaCollection = '{broken';
+  assert.throws(() => normalizeLumaImport(exported));
+});
+
+test('older saved drafts get catalog instance IDs recursively at export without losing renamed titles', () => {
+  const widgets = documentToEditor(starterDocument()).widgets;
+  if (widgets[0].type !== 'collection.row') throw new Error('Expected folders');
+  const item = widgets[0].dataSource.payload.items[0];
+  item.lumaFolder!.subfolders![0].sources = [{ provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'popular', title: 'Renamed' }];
+  const exported = JSON.parse(exportEditorForLuma(widgets));
+  const source = exported[0].folders[0].subfolders[0].sources[0];
+  assert.ok(source.id); assert.equal(source.title, 'Renamed');
+  assert.equal(item.lumaFolder!.subfolders![0].sources![0].id, undefined);
+});
+
+test('keeping local catalogs does not suppress imported sections and independent genre copies', () => {
+  const doc = starterDocument();
+  const folder = doc.collections[0].folders[0];
+  folder.sources = [{ id: 'a', provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'popular', title: 'Original' }];
+  const existing = documentToEditor(doc).widgets;
+  folder.sources[0].title = 'Renamed catalog';
+  folder.sources.push({ ...folder.sources[0], id: 'b', genre: 'Comedy' });
+  folder.catalogGroups = [{ id: 'new', title: 'Comedy section', catalogIDs: ['b'] }];
+  folder.sections![0].title = 'Updated folder section';
+  const incoming = documentToEditor(doc).widgets;
+  const review = buildImportReviewState(existing, incoming);
+  const item = folder.id, widget = doc.collections[0].id;
+  const result = applyImportReview(existing, incoming, review.widgetDiffs, { ...review, widgetSelected: { [widget]: true }, itemSelected: { [getImportItemSelectionKey(widget, item)]: true }, itemFieldUpdates: { [getImportItemSelectionKey(widget, item)]: { name: true, image: true, catalogs: true } }, keepExistingCatalogs: true, applyMode: 'merge' });
+  const out = editorToDocument(result.widgets).collections[0].folders[0];
+  assert.equal(out.sections![0].title, 'Updated folder section');
+  assert.equal(out.sources!.length, 2);
+  assert.equal(out.sources![0].title, 'Renamed catalog');
+  assert.deepEqual(out.catalogGroups, folder.catalogGroups);
+});
+
+test('complete Home retains all 23 genre tiles and 129 catalog references from the manager export shape', () => {
+  const folders = Array.from({ length: 23 }, (_, index) => ({ id: `genre-${index}`, title: `Genre ${index}`, sources: Array.from({ length: index < 14 ? 6 : 5 }, (_, offset) => ({ id: `catalog-${index}-${offset}`, provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: `all::genre-${index}-${offset}`, title: `Renamed ${index}/${offset}` })) }));
+  const widgets = documentToEditor({ collections: [{ id: 'genres', title: 'Genres', folders }] }).widgets;
+  const exported = JSON.parse(exportLumaHome(widgets));
+  assert.equal(exported.widgets[0].dataSource.payload.items.length, 23);
+  assert.equal(exported.widgets[0].dataSource.payload.items.flatMap((f: { dataSources: unknown[] }) => f.dataSources).length, 129);
+  const native = JSON.parse(exported.widgets[0].lumaCollection);
+  assert.deepEqual(native.folders, folders.map(f => ({ ...f, hideTitle: false, tileShape: 'LANDSCAPE', coverImageUrl: '' })));
 });

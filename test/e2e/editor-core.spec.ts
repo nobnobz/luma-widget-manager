@@ -213,6 +213,7 @@ test('keeps the manifest url field in view on mobile after focus', async ({ page
 test('keeps the manifest actions visible on mobile when the url is empty', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chrome', 'This assertion targets the mobile layout.');
 
+  await mockManifest(page, getAuditFixture('medium'));
   await gotoWelcomePage(page);
   await page.getByTestId('welcome-load-template').click();
   if (!(await page.getByText('AIOMetadata synced').isVisible())) {
