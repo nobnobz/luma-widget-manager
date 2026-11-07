@@ -180,7 +180,7 @@ test('builds catalog sections and filtered native catalogs through the hub edito
   await page.getByRole('button', { name: 'Load', exact: true }).click();
   const hub = await openMovies(page);
   await hub.getByRole('button', { name: 'Add TMDB catalog', exact: true }).click();
-  await hub.getByText('1. New catalog · tmdb', { exact: true }).click();
+  await hub.getByText('New catalog · TMDB', { exact: true }).click();
   await hub.getByLabel('Catalog title', { exact: true }).fill('Sci-fi discoveries');
   await hub.getByText('Filters and sorting', { exact: true }).click();
   await hub.getByLabel('Included genre IDs', { exact: true }).fill('878, 28');
@@ -266,7 +266,7 @@ test('manages synced add-on catalogs and filters together in the hub editor', as
   const hub = await openMovies(page);
   await hub.getByRole('button', { name: 'Choose synced catalog' }).click();
   await page.getByRole('button', { name: /Popular films/ }).click();
-  await hub.getByText('1. Popular films · addon', { exact: true }).click();
+  await hub.getByText('Popular films · Add-on', { exact: true }).click();
   await hub.getByText('Filters and sorting', { exact: true }).click();
   await hub.getByLabel('Year', { exact: true }).fill('2024');
   await hub.getByLabel('Catalog title', { exact: true }).fill('Favorites');
@@ -302,7 +302,7 @@ test('retains existing catalogs and nested folders when editing a catalog', asyn
   const close = page.getByRole('button', { name: 'Close drawer', exact: true });
   if (await close.isVisible()) await close.click(); else await page.keyboard.press('Escape');
   const hub = await openMovies(page);
-  await hub.getByText('1. Popular films · addon', { exact: true }).click();
+  await hub.getByText('Popular films · Add-on', { exact: true }).click();
   await hub.getByText('Filters and sorting', { exact: true }).first().click();
   await hub.getByLabel('Year', { exact: true }).first().scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath('catalog-editor.png'), animations: 'disabled' });

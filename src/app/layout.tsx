@@ -23,11 +23,11 @@ export const metadata: Metadata = {
   description: "Build UME hubs, sections and nested folders for Luma",
   icons: {
     icon: [
-      { url: withBasePath("/favicon.ico"), sizes: "32x32", type: "image/x-icon" },
-      { url: withBasePath("/icon-16.png"), sizes: "16x16", type: "image/png" },
-      { url: withBasePath("/icon-32.png"), sizes: "32x32", type: "image/png" },
+      { url: withBasePath("/luma-favicon.svg"), type: "image/svg+xml" },
+      { url: withBasePath("/luma-icon-16.png"), sizes: "16x16", type: "image/png" },
+      { url: withBasePath("/luma-icon-32.png"), sizes: "32x32", type: "image/png" },
     ],
-    apple: withBasePath("/apple-touch-icon.png?v=2"),
+    apple: withBasePath("/branding/luma-icon.png"),
   },
   appleWebApp: {
     capable: true,

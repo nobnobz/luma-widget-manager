@@ -527,6 +527,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                     onToggleExpand();
                   }}
                   title={isExpanded ? "Collapse item" : "Expand item"}
+                  aria-expanded={isExpanded}
                 >
                   <ChevronRight className="size-4" />
                 </Button>
@@ -589,7 +590,8 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                         e.stopPropagation();
                         onToggleExpand();
                       }}
-                      title={isExpanded ? "Collapse Item" : "Expand Item"}
+                      title={isExpanded ? "Collapse item" : "Expand item"}
+                      aria-expanded={isExpanded}
                     >
                       <ChevronRight className="size-4" />
                     </Button>

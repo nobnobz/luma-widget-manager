@@ -571,3 +571,19 @@ test('keeps the setup guide usable on mobile', async ({ page }, testInfo) => {
   await guide.locator('div').filter({ hasText: 'Export to Fusion' }).last().scrollIntoViewIfNeeded();
   await expect(guide).toContainText('Settings -> Widgets -> Import');
 });
+
+test('uses the correct branding for Luma and Fusion pages', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await expect(page).toHaveTitle('Luma Widget Manager');
+  await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', /\/luma-favicon\.svg$/);
+  await expect(page.locator('link[rel="icon"][sizes="16x16"]')).toHaveAttribute('href', /\/luma-icon-16\.png$/);
+  await expect(page.locator('link[rel="icon"][sizes="32x32"]')).toHaveAttribute('href', /\/luma-icon-32\.png$/);
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', /\/branding\/luma-icon\.png$/);
+  await page.goto('/fusion/');
+  await expect(page).toHaveTitle('Fusion Widget Manager');
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', /\/branding\/fusion-favicon\.png$/);
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', /\/apple-touch-icon\.png\?v=2$/);
+  const response = await page.goto('/luma-favicon.svg');
+  expect(response?.status()).toBe(200);
+  await page.locator('svg').screenshot({ path: testInfo.outputPath('luma-favicon.png') });
+});

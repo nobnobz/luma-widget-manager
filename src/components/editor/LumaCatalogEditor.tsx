@@ -7,10 +7,13 @@ import { useConfig } from '@/context/ConfigContext';
 import { CatalogCombobox } from './CatalogCombobox';
 import { MANIFEST_PLACEHOLDER, resolveFusionCatalogType } from '@/lib/config-utils';
 import { newID, type Folder, type CatalogSource, type CatalogGroup } from '@/lib/luma-document';
+import { cn } from '@/lib/utils';
+import { editorPanelClass } from './editorSurfaceStyles';
 
 const orders = ['standard', 'releaseDateNewest', 'releaseDateOldest', 'popular', 'leastPopular', 'topRated', 'lowestRated', 'mostVotes', 'fewestVotes', 'title', 'titleDescending', 'random'];
 const releases = ['all', 'released', 'digital_released', 'upcoming'];
 const optionLabel = (value: string) => value ? value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase()) : 'Automatic';
+const providerLabel = (provider: string) => ({ addon: 'Add-on', tmdb: 'TMDB', trakt: 'Trakt', jellyfin: 'Jellyfin', 'unsupported-editor-source': 'Unsupported source' })[provider] ?? provider;
 const fieldClass = 'h-10 w-full rounded-xl border border-border bg-background px-3 text-xs';
 function TextField({ label, value, change, type = 'text', min, max }: { label: string; value: unknown; change: (v: string) => void; type?: string; min?: number; max?: number }) {
   return <label className="block space-y-1 text-xs text-muted-foreground"><span>{label}</span><Input aria-label={label} type={type} min={min} max={max} value={String(value ?? '')} onChange={e => change(e.target.value)} /></label>;
@@ -54,7 +57,7 @@ export function LumaCatalogEditor({ folder, onChange, sourceId, controlsOnly = f
       const filters = (source.contentFilters ?? {}) as Record<string, unknown>;
       const filter = (key: string, value: unknown) => sourceChange(i, { contentFilters: { ...filters, [key]: value } });
       const ids = (v: string) => [...new Set(v.split(/[,\s]+/).filter(Boolean).map(Number).filter(n => Number.isSafeInteger(n) && n > 0))];
-      return <details key={source.id ?? i} className="space-y-3 rounded-xl border border-border/60 bg-background/60 p-4"><summary className="cursor-pointer text-xs font-bold">{i + 1}. {String(source.title || source.catalogId || source.provider)} · {source.provider}</summary><div className="mt-4 grid gap-3 sm:grid-cols-2">
+      return <details key={source.id ?? i} className={cn(editorPanelClass, 'space-y-3 bg-muted/10 p-4 sm:p-5')}><summary className="cursor-pointer text-sm font-bold">{String(source.title || source.catalogId || providerLabel(source.provider))} · {providerLabel(source.provider)}</summary><div className="mt-4 grid gap-3 sm:grid-cols-2">
         <TextField label="Catalog title" value={source.title} change={title => sourceChange(i, { title })} />
         <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={source.homeEnabled !== false} onChange={e => sourceChange(i, { homeEnabled: e.target.checked })} />Catalog enabled</label>
         {source.provider === 'addon' && manifestCatalogs.length > 0 && <div className="space-y-1 text-xs text-muted-foreground"><span>Synced catalog</span><CatalogCombobox options={manifestCatalogs} value={String(source.catalogId ?? '')} onChange={value => { const selected = manifestCatalogs.find(c => `${c.type}::${c.id}` === value); if (selected) sourceChange(i, { addonId: MANIFEST_PLACEHOLDER, catalogId: value, type: resolveFusionCatalogType(value, selected.displayType || selected.type || 'movie') }); }} /></div>}

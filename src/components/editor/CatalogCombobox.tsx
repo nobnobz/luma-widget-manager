@@ -112,6 +112,7 @@ export function CatalogCombobox({
           {search && (
             <button 
               type="button"
+              aria-label="Clear catalog search"
               onClick={(e) => {
                 e.stopPropagation();
                 setSearch('');

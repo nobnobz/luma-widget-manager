@@ -787,6 +787,7 @@ export function MainEditor() {
               className="size-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all overflow-hidden"
               onClick={() => setShowHowToUse(true)}
               title="How To Use"
+              aria-label="How to use"
             >
               <Book className="size-4.5" />
             </Button>
@@ -796,12 +797,13 @@ export function MainEditor() {
               className="size-9 rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-all overflow-hidden"
               onClick={openSupportLink}
               title="Support Me"
+              aria-label="Support my work"
             >
               <Heart className="size-4.5" />
             </Button>
             <div className="w-px h-4 bg-border/45 mx-0.5" />
             <ThemeToggle className="size-9 rounded-xl" />
-            <Button variant="ghost" size="icon" className="size-9 rounded-xl hover:bg-zinc-500/10 hover:text-zinc-600 transition-all overflow-hidden dark:hover:text-zinc-300" onClick={() => setShowRestartConfirm(true)} title="Back to Start">
+            <Button variant="ghost" size="icon" className="size-9 rounded-xl hover:bg-zinc-500/10 hover:text-zinc-600 transition-all overflow-hidden dark:hover:text-zinc-300" onClick={() => setShowRestartConfirm(true)} title="Back to Start" aria-label="Start over">
               <RotateCcw className="size-4" />
             </Button>
           </div>

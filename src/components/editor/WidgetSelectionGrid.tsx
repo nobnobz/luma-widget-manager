@@ -4069,6 +4069,8 @@ function WidgetSelectionGridComponent({
                 />
                 {searchQuery && (
                   <button
+                    type="button"
+                    aria-label="Clear search"
                     onClick={() => setSearchQuery('')}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl hover:bg-muted/50 text-muted-foreground/20 hover:text-muted-foreground transition-all hover:scale-110 active:scale-90"
                   >
