@@ -377,7 +377,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
     <div className="flex flex-col gap-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/42 flex items-center h-8">
-          {isLuma ? 'Catalogs inside this folder' : 'Catalogs'}
+          {isLuma ? 'Add-on catalogs' : 'Catalogs'}
         </div>
         <CatalogCombobox
           options={manifestCatalogs}
@@ -396,7 +396,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
           }
         />
       </div>
-      {isLuma && <p className="text-[11px] leading-relaxed text-muted-foreground">One catalog opens directly when this folder has no subfolders. Multiple catalogs become rows or tabs inside the folder.</p>}
+      {isLuma && <p className="text-[11px] leading-relaxed text-muted-foreground">Add-on catalogs can be selected here. For all providers, filters and folder layout, open the hub page below.</p>}
       <div className="space-y-1.5">
         <DndContext
           sensors={dataSourceSensors}
@@ -689,7 +689,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
 
                     <div className="h-px w-full bg-zinc-200/60 dark:bg-white/5 mb-5 max-sm:mb-4" />
 
-                    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-5">
+                    <div className={cn(!isLuma && "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-5")}>
                       {/* Right Column: Visuals */}
                       <motion.div
                         layout
@@ -826,7 +826,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                       </motion.div>
 
                       {/* Left Column: Config */}
-                      <div className="min-w-0 flex flex-col gap-4 max-sm:gap-3 lg:border-l lg:border-zinc-200/40 lg:dark:border-white/5 lg:pl-6">
+                      {!isLuma && <div className="min-w-0 flex flex-col gap-4 max-sm:gap-3 lg:border-l lg:border-zinc-200/40 lg:dark:border-white/5 lg:pl-6">
                         {/* Catalogs Section: Left Column on Desktop */}
                         <div className="hidden min-w-0 lg:block">
                           {catalogsSectionContent}
@@ -838,7 +838,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                             {catalogsSectionContent}
                           </div>
                         </div>
-                      </div>
+                      </div>}
                     </div>
                     {isLuma && <LumaFolderPageEditor item={item} onUpdate={onUpdate} depth={depth} />}
                   </div>

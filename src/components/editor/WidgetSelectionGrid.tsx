@@ -1455,6 +1455,9 @@ function WidgetSelectionGridComponent({
       setSelectedRegexPatternPackSlug(nextRegexSlug);
     }
 
+    const disclosure = focusTarget.closest('details');
+    if (disclosure) disclosure.open = true;
+
     const frame = window.requestAnimationFrame(() => {
       focusTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
       onInitialSectionFocusHandled?.();
@@ -3135,7 +3138,7 @@ function WidgetSelectionGridComponent({
             .</>}
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/75 max-sm:text-[10.5px]">
-            {isLuma ? 'Custom videos are preserved. Focus-video playback is currently implemented on tvOS; hub nesting is a separate platform capability.' : 'You need both the cover URL and the widget installed for the preview pack to work.'}
+            {isLuma ? 'Custom videos are preserved. Focus-video playback is currently available on tvOS.' : 'You need both the cover URL and the widget installed for the preview pack to work.'}
           </p>
         </div>
 
@@ -3668,7 +3671,7 @@ function WidgetSelectionGridComponent({
         <div className="mt-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 max-sm:p-3.5">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary/80 max-sm:text-[9px]">Install Note</p>
           <p className="mt-2 text-[12px] leading-relaxed text-foreground/85 max-sm:text-[11.5px]">
-            {isLuma ? <>Pick a variant and copy its URL. In Luma, open Badge Packs in the stream/source settings and import the URL. Tags are a separate app preference, so they are not mixed into collection JSON. Up to three pack URLs can be stored; one is active at a time.</> : <>1. Pick one variant and copy its URL.
+            {isLuma ? <>Copy a pack URL and import it under Luma’s stream settings → Badge Packs. Badge packs are stored separately from collection exports.</> : <>1. Pick one variant and copy its URL.
             {' '}
             2. Paste it in
             {' '}
@@ -3958,13 +3961,9 @@ function WidgetSelectionGridComponent({
   return (
     <div className="flex-1 flex flex-col bg-transparent">
       <main className="max-w-5xl mx-auto w-full px-6 max-sm:px-4 py-12 max-sm:py-6 max-sm:pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-        <div className="flex flex-col gap-3 mb-10 max-sm:hidden text-center sm:text-left">
-          <div className="flex items-center justify-center sm:justify-start max-sm:justify-start">
-            <h1 className="text-4xl max-sm:text-[1.9rem] font-black tracking-tight text-foreground leading-none">{isLuma ? 'Luma Widget Manager' : 'Fusion Widget Manager'}</h1>
-          </div>
-          <p className="text-[15px] max-sm:text-[13px] text-muted-foreground/80 font-medium max-w-2xl leading-relaxed max-sm:text-left">
-            {isLuma ? 'Organize your Luma widgets, folders and hub pages.' : 'Organize and manage your library of Fusion widgets.'}
-          </p>
+        <div className="mb-6 flex items-baseline justify-between gap-3">
+          <h2 className="text-2xl font-bold tracking-tight">{isLuma ? 'Home rows' : 'Widgets'}</h2>
+          <span className="text-sm text-muted-foreground">{widgets.length}</span>
         </div>
 
         <div className="mb-12 max-sm:mb-7">
@@ -4024,7 +4023,7 @@ function WidgetSelectionGridComponent({
                         ? manifestAutoSyncIssue
                         : hasUnsyncedAiometadataSources
                           ? 'Sync your AIOMetadata manifest to replace placeholders and add new catalogs.'
-                          : 'Add your AIOMetadata manifest URL for catalog validation and automatic placeholder replacement.'}
+                          : 'Connect AIOMetadata to validate catalogs and fill in placeholders.'}
                     </p>
                   </div>
                 </div>
@@ -4063,7 +4062,7 @@ function WidgetSelectionGridComponent({
                 <Search className="pointer-events-none absolute left-5 max-sm:left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
                 <Input
                   data-testid="widget-search"
-                  placeholder={isLuma ? "Search rows and folders..." : "Search for widgets..."}
+                  placeholder={isLuma ? "Search rows and folders..." : "Search widgets..."}
                   className="w-full h-11 max-sm:h-10 pl-11 max-sm:pl-9 pr-10 rounded-xl border-none bg-transparent shadow-none focus-visible:ring-0 text-base sm:text-[13px] font-medium tracking-tight placeholder:text-muted-foreground/40"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
@@ -4125,6 +4124,13 @@ function WidgetSelectionGridComponent({
           </p>
         )}
 
+        {widgets.length === 0 && !searchQuery && (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+            <p className="text-sm text-muted-foreground">{isLuma ? 'Your Home has no rows yet.' : 'You have no widgets yet.'}</p>
+            <Button variant="outline" className="mt-4" onClick={handleCreateWidget}><Plus className="mr-2 size-4" />{isLuma ? 'Add Home row' : 'Add widget'}</Button>
+          </div>
+        )}
+
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -4161,9 +4167,12 @@ function WidgetSelectionGridComponent({
           </SortableContext>
         </DndContext>
 
-        {renderAnimatedCoversSection()}
-        {renderRegexPatternsSection()}
-        {renderFormatterSection()}
+        <details className="mt-10 rounded-2xl border border-border/70 bg-card/50 px-4 py-4 sm:px-5">
+          <summary className="cursor-pointer text-base font-semibold marker:text-primary">Packs and tools</summary>
+          {renderAnimatedCoversSection()}
+          {renderRegexPatternsSection()}
+          {renderFormatterSection()}
+        </details>
 
         {filteredWidgets.length === 0 && searchQuery && (
           <div className="py-20 text-center">

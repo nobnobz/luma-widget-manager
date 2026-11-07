@@ -239,3 +239,14 @@ test('complete Home retains all 23 genre tiles and 129 catalog references from t
   const native = JSON.parse(exported.widgets[0].lumaCollection);
   assert.deepEqual(native.folders, folders.map(f => ({ ...f, hideTitle: false, tileShape: 'LANDSCAPE', coverImageUrl: '' })));
 });
+
+test('editing a hub preserves unsupported legacy sources until explicitly removed', () => {
+  const item = folderToItem(starterDocument().collections[0].folders[0]);
+  item.dataSources = [{ sourceType: 'anilist-native', kind: 'anilistCatalog', payload: { catalogType: 'trending', limit: 20 } }];
+  const draft = itemToDraftFolder(item);
+  const roundTrip = folderToItem(draft);
+  assert.deepEqual(roundTrip.dataSources, item.dataSources);
+  assert.deepEqual(itemToDraftFolder(roundTrip).sources, draft.sources);
+  const removed = folderToItem({ ...draft, sources: [] });
+  assert.deepEqual(removed.dataSources, []);
+});

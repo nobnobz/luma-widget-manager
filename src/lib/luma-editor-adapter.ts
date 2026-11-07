@@ -15,10 +15,12 @@ export function folderToItem(folder: Folder): CollectionItem {
     id: folder.id, name: folder.title, hideTitle: folder.hideTitle ?? false,
     layout: folder.tileShape === 'POSTER' ? 'Poster' : folder.tileShape === 'SQUARE' ? 'Square' : 'Wide',
     backgroundImageURL: folder.coverImageUrl ?? '', lumaFolder: structuredClone(folder),
-    dataSources: (folder.sources ?? folder.catalogSources as CatalogSource[] ?? []).filter(s => !s.provider || s.provider === 'addon').map(s => ({
-      kind: 'addonCatalog', sourceType: 'aiometadata', lumaSource: structuredClone(s),
-      payload: { addonId: s.addonId ?? '', catalogType: s.type ?? 'movie', catalogId: s.catalogId ?? '' },
-    })),
+    dataSources: (folder.sources ?? []).flatMap((s): WidgetDataSource[] => {
+      if (s.provider === 'unsupported-editor-source' && s.editorSource && typeof s.editorSource === 'object') return [structuredClone(s.editorSource) as WidgetDataSource];
+      if (s.provider && s.provider !== 'addon') return [];
+      return [{ kind: 'addonCatalog', sourceType: 'aiometadata', lumaSource: structuredClone(s),
+        payload: { addonId: s.addonId ?? '', catalogType: s.type ?? 'movie', catalogId: s.catalogId ?? '' } }];
+    }),
   };
 }
 function sourceToNative(source: WidgetDataSource, index: number): CatalogSource {
@@ -33,7 +35,7 @@ function combineSources(edited: CatalogSource[], original: CatalogSource[] = [])
   const pending = [...edited];
   const result: CatalogSource[] = [];
   for (const source of original) {
-    if (source.provider && source.provider !== 'addon') result.push(source);
+    if (source.provider && source.provider !== 'addon' && source.provider !== 'unsupported-editor-source') result.push(source);
     else if ((!source.id || edited.some(s => s.id === source.id)) && pending.length) result.push(pending.shift()!);
   }
   return [...result, ...pending];
@@ -53,7 +55,7 @@ export function itemToDraftFolder(item: CollectionItem): Folder {
     coverImageUrl: item.backgroundImageURL,
     sources: combineSources(item.dataSources.map((s, i): CatalogSource => s.kind === 'addonCatalog'
       ? { ...s.lumaSource, id: s.lumaSource?.id ?? `source-${i}`, provider: 'addon', addonId: s.payload.addonId, type: s.payload.catalogType, catalogId: s.payload.catalogId }
-      : { provider: 'unsupported-editor-source', editorSource: s }), item.lumaFolder?.sources),
+      : { id: item.lumaFolder?.sources?.filter(original => original.provider === 'unsupported-editor-source' && JSON.stringify(original.editorSource) === JSON.stringify(s))[item.dataSources.slice(0, i).filter(previous => previous.kind !== 'addonCatalog' && JSON.stringify(previous) === JSON.stringify(s)).length]?.id ?? `source-${i}`, provider: 'unsupported-editor-source', editorSource: s }), item.lumaFolder?.sources),
   };
 }
 export function documentToEditor(document: LumaDocument): FusionWidgetsConfig {

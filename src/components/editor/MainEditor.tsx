@@ -32,7 +32,7 @@ import {
   editorFooterPrimaryButtonClass,
 } from './editorSurfaceStyles';
 import LogoImage from '@/../public/branding/clown_logo.png';
-import LumaLogoImage from '@/../public/branding/luma-icon.png';
+import LumaLogoImage from '@/../public/branding/luma-logo-transparent.png';
 import { convertAiometadataImportToFusion, isAiometadataImportPayload } from '@/lib/aiometadata-import';
 import { convertOmniToFusion } from '@/lib/omni-converter';
 import { shouldPromptForAiometadataManifestSetup } from '@/lib/aiometadata-manifest-detection';
@@ -807,31 +807,168 @@ export function MainEditor() {
           </div>
 
           {/* Branding Section */}
-          <div className="relative group mb-0 sm:-mb-4 max-sm:mt-4 text-center flex flex-col items-center">
-            <div className="relative size-38 sm:size-52 flex items-center justify-center rounded-full overflow-hidden select-none">
+          <div className="relative group mb-5 sm:mb-7 max-sm:mt-4 text-center flex flex-col items-center">
+            <div className="relative size-28 sm:size-36 flex items-center justify-center select-none">
               <Image
                 src={isLuma ? LumaLogoImage : LogoImage}
                 alt={isLuma ? "Luma Logo" : "Clown Logo"}
                 width={208}
                 height={208}
-                className={cn("w-full h-full object-contain", isLuma && "scale-[0.42]")}
+                className="w-full h-full object-contain"
                 priority
               />
             </div>
 
-            <h2 className="text-3xl sm:text-6xl font-black tracking-tighter mb-2 sm:mb-4 text-center max-sm:max-w-[12ch] leading-[0.95]">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2 sm:mb-3 text-center max-sm:max-w-[12ch] leading-[0.95]">
               {isLuma ? 'Luma Widget' : 'Fusion Widget'} <span className="text-primary">Manager</span>
             </h2>
 
-            <p className="text-[12px] sm:text-sm max-w-sm text-center mb-6 sm:mb-10 text-muted-foreground/80 font-medium tracking-tight leading-relaxed">
-              {isLuma ? 'Manage your Luma widgets, hubs and folders through a powerful web interface.' : 'Manage your Fusion widgets through a powerful web interface.'}
+            <p className="text-[12px] sm:text-sm max-w-sm text-center mb-0 text-muted-foreground/80 font-medium tracking-tight leading-relaxed">
+              {isLuma ? 'Create and organize your Luma Home and collections.' : 'Create and organize your Fusion widgets.'}
             </p>
           </div>
 
           <div className="w-full space-y-4 sm:space-y-4 mb-6 sm:mb-10">
+
+            <div
+              className={cn(
+                "relative group transition-all duration-300 w-full",
+                isDraggingFile && "scale-[1.02]"
+              )}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Textarea
+                data-testid="welcome-import-textarea"
+                value={pastedJson}
+                onChange={(e) => setPastedJson(e.target.value)}
+                onFocus={() => setIsImportFocused(true)}
+                onBlur={() => setIsImportFocused(false)}
+                placeholder={isImportFocused ? "Paste JSON or a URL..." : (isDraggingFile ? "Drop your JSON file here" : "Paste JSON or a URL, or drop a file here")}
+                className={cn(
+                  "min-h-[200px] max-sm:min-h-[100px] pt-32 max-sm:pt-28 pb-10 max-sm:pb-5 font-mono text-base sm:text-xs",
+                  "bg-white/40 dark:bg-white/[0.03] border-2 border-dashed border-zinc-200/80 dark:border-white/10 rounded-3xl max-sm:rounded-2xl px-10 max-sm:px-5 text-center focus:text-left focus-visible:ring-primary/20 transition-all leading-relaxed placeholder:text-center focus:placeholder:text-left placeholder:text-muted-foreground/60 placeholder:font-sans resize-y overflow-y-auto backdrop-blur-sm",
+                  "hover:bg-white/60 dark:hover:bg-white/[0.05] hover:border-primary/40",
+                  isDraggingFile && "border-primary bg-primary/5 ring-8 ring-primary/5 scale-[1.01]"
+                )}
+              />
+              <div className={cn(
+                "absolute top-8 max-sm:top-5 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-700 delay-75",
+                pastedJson.trim() ? "pointer-events-none invisible opacity-0 scale-75 -translate-y-4" : "opacity-100 scale-100"
+              )}>
+                <button
+                  type="button"
+                  aria-label="Choose a JSON file"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="size-14 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 flex items-center justify-center text-muted-foreground shadow-sm hover:scale-110 hover:text-primary hover:border-primary/40 transition-all duration-500 ease-out relative group/icon"
+                >
+                  <UploadCloud className="size-6 relative z-10" />
+                  <div className="absolute inset-0 rounded-full bg-primary/5 scale-0 group-hover/icon:scale-125 transition-transform duration-500" />
+                </button>
+                <span className="mt-2 text-xs font-medium text-muted-foreground">Choose a file</span>
+              </div>
+              <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".json" />
+              <input type="file" ref={omniFileInputRef} onChange={handleOmniImport} className="hidden" accept=".json" />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:max-w-2xl sm:mx-auto items-stretch sm:items-center justify-center">
+              {pastedJson.trim() ? (
+                <Button
+                  data-testid="welcome-load-configuration"
+                  onClick={handlePasteImport}
+                  size="lg"
+                  className={cn(editorActionButtonClass, "h-11 sm:h-[3.05rem] w-full sm:min-w-[224px] text-[11px] sm:text-[10px] bg-primary/10 text-primary border border-primary/20 hover:bg-primary/18 hover:scale-[1.01] overflow-hidden group/load shadow-sm shadow-primary/5")}
+                >
+                  <ClipboardPaste className="size-4 sm:size-5 mr-3 shrink-0" />
+                  Load Configuration
+                </Button>
+              ) : (
+                <Button
+                  data-testid="welcome-create-widget-button"
+                  className={cn(editorActionButtonClass, "h-11 sm:h-[3.05rem] w-full sm:min-w-[224px] text-[11px] sm:text-[10px] bg-primary/10 text-primary border border-primary/20 hover:bg-primary/18 hover:scale-[1.01] shadow-sm shadow-primary/5 group/create overflow-hidden")}
+                  onClick={handleAddFirstWidget}
+                >
+                  <Plus className="size-4 sm:size-5 mr-3 shrink-0" />
+                  Create New
+                </Button>
+              )}
+            </div>
+
+            <div className="flex justify-center pt-2 w-full">
+              {githubTemplates.length > 0 ? (
+                <div className="w-full max-w-[38.5rem] rounded-3xl border border-zinc-200/80 dark:border-white/10 bg-white/40 dark:bg-zinc-950/20 px-3 py-3 sm:px-4 sm:py-4 backdrop-blur-sm space-y-2 sm:space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <a
+                      href="https://github.com/nobnobz/Omni-Template-Bot-Bid-Raiser"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 opacity-70 hover:opacity-100 hover:text-primary transition-all group/tpl"
+                    >
+                      <Github className="size-3.5 text-primary group-hover/tpl:scale-110 transition-transform" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground group-hover/tpl:text-primary">UME Templates</span>
+                    </a>
+                  </div>
+                  <div className="flex gap-1.5 sm:gap-2 p-1.5 rounded-2xl sm:rounded-3xl border border-zinc-200/60 dark:border-white/5 bg-white/60 dark:bg-card/55 backdrop-blur-sm transition-all focus-within:border-primary/30 h-11 sm:h-[3.25rem] items-center">
+                    <Popover open={isTemplatePopoverOpen} onOpenChange={setIsTemplatePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <button className="flex-1 h-full min-w-0 bg-transparent border-none focus:outline-none text-[11px] sm:text-[12px] font-bold pl-3 pr-4 appearance-none cursor-pointer hover:bg-muted/10 rounded-2xl transition-all text-left flex items-center justify-between group/select">
+                          <span className="truncate">
+                            {selectedTemplateUrl === 'luma:starter' ? 'UME v4.0 Hub Starter' : selectedTemplate ? formatTemplateLabel('UME Fusion Template', selectedTemplate) : 'Select Template...'}
+                          </span>
+                          <ChevronDown className={cn("size-3.5 text-muted-foreground/50 group-hover/select:text-primary transition-all shrink-0", isTemplatePopoverOpen && "rotate-180")} />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1 rounded-2xl border-border/40 bg-card/95 backdrop-blur-xl " align="start">
+                        <div className="flex flex-col gap-0.5 max-h-[160px] overflow-y-auto pr-1">
+                          {githubTemplates.map((template) => (
+                            <button
+                              key={template.rawUrl}
+                              onClick={() => {
+                                setSelectedTemplateUrl(template.rawUrl);
+                                setIsTemplatePopoverOpen(false);
+                              }}
+                              className={cn(
+                                "w-full px-4 py-3 rounded-2xl text-[12px] font-bold text-left transition-all flex items-center justify-between group active:scale-[0.98]",
+                                selectedTemplateUrl === template.rawUrl
+                                  ? "bg-primary/10 text-primary"
+                                  : "hover:bg-muted text-foreground/80 hover:text-foreground"
+                              )}
+                            >
+                              <span className="truncate">{template.rawUrl === 'luma:starter' ? 'UME v4.0 Hub Starter' : formatTemplateLabel('UME Fusion Template', template)}</span>
+                              {selectedTemplateUrl === template.rawUrl && <Check className="size-3.5 shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <Button
+                      onClick={handleLoadTemplate}
+                      disabled={isLoadingTemplates || !selectedTemplateUrl}
+                      size="sm"
+                      data-testid="welcome-load-template"
+                      className={cn(editorActionButtonClass, "h-11 sm:h-full min-w-[90px] sm:min-w-[120px] px-4 sm:px-6 text-[11px] sm:text-[10px] bg-primary hover:bg-primary/90 shadow-md shadow-primary/10")}
+                    >
+                      {isLoadingTemplates ? <RotateCcw className="size-4 animate-spin" /> : <><Download className="size-4 mr-2" />Load</>}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="ghost" className="h-12 w-full max-w-sm rounded-2xl border border-dashed border-border/60 bg-muted/10" disabled={isLoadingTemplates}>
+                  <Github className={cn("size-4 text-primary/80", isLoadingTemplates && "animate-pulse")} />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary/80 ml-2">
+                      {isLoadingTemplates ? 'Fetching Templates...' : 'UME Templates - No templates available'}
+                  </span>
+                </Button>
+              )}
+            </div>
+
+            <details className="group rounded-2xl border border-border/70 bg-card/50 px-4 py-3">
+              <summary className="cursor-pointer text-sm font-semibold text-foreground marker:text-primary">Downloads and conversion</summary>
+              <div className="pt-4">
             <div className="flex flex-col items-start gap-1 w-full sm:w-auto sm:ml-auto">
               <div className="px-1 sm:px-0 text-[10px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/58">
-                Additional Resources
+                Downloads and tools
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center sm:gap-1.5 w-full">
                 <Button
@@ -866,137 +1003,12 @@ export function MainEditor() {
               </div>
             </div>
 
-            <div
-              className={cn(
-                "relative group transition-all duration-300 w-full",
-                isDraggingFile && "scale-[1.02]"
-              )}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <Textarea
-                data-testid="welcome-import-textarea"
-                value={pastedJson}
-                onChange={(e) => setPastedJson(e.target.value)}
-                onFocus={() => setIsImportFocused(true)}
-                onBlur={() => setIsImportFocused(false)}
-                placeholder={isImportFocused ? "Paste JSON payload here..." : (isDraggingFile ? "Drop your JSON file here!" : "Paste your Luma or Fusion widget export, a JSON URL, or drag & drop a file here...")}
-                className={cn(
-                  "min-h-[200px] max-sm:min-h-[100px] pt-32 max-sm:pt-28 pb-10 max-sm:pb-5 font-mono text-base sm:text-xs",
-                  "bg-white/40 dark:bg-white/[0.03] border-2 border-dashed border-zinc-200/80 dark:border-white/10 rounded-3xl max-sm:rounded-2xl px-10 max-sm:px-5 text-center focus:text-left focus-visible:ring-primary/20 transition-all leading-relaxed placeholder:text-center focus:placeholder:text-left placeholder:text-muted-foreground/60 placeholder:font-sans resize-y overflow-y-auto backdrop-blur-sm",
-                  "hover:bg-white/60 dark:hover:bg-white/[0.05] hover:border-primary/40",
-                  isDraggingFile && "border-primary bg-primary/5 ring-8 ring-primary/5 scale-[1.01]"
-                )}
-              />
-              <div className={cn(
-                "absolute top-8 max-sm:top-5 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-700 delay-75",
-                pastedJson.trim() ? "opacity-0 scale-75 -translate-y-4" : "opacity-100 scale-100"
-              )}>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="size-14 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 flex items-center justify-center text-muted-foreground shadow-sm hover:scale-110 hover:text-primary hover:border-primary/40 transition-all duration-500 ease-out relative group/icon"
-                >
-                  <UploadCloud className="size-6 relative z-10" />
-                  <div className="absolute inset-0 rounded-full bg-primary/5 scale-0 group-hover/icon:scale-125 transition-transform duration-500" />
-                </button>
               </div>
-              <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".json" />
-              <input type="file" ref={omniFileInputRef} onChange={handleOmniImport} className="hidden" accept=".json" />
-            </div>
+            </details>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:max-w-2xl sm:mx-auto items-stretch sm:items-center justify-center">
-              {pastedJson.trim() ? (
-                <Button
-                  data-testid="welcome-load-configuration"
-                  onClick={handlePasteImport}
-                  size="lg"
-                  className={cn(editorActionButtonClass, "h-11 sm:h-[3.05rem] w-full sm:min-w-[224px] text-[11px] sm:text-[10px] bg-primary/10 text-primary border border-primary/20 hover:bg-primary/18 hover:scale-[1.01] overflow-hidden group/load shadow-sm shadow-primary/5")}
-                >
-                  <ClipboardPaste className="size-4 sm:size-5 mr-3 shrink-0" />
-                  Load Configuration
-                </Button>
-              ) : (
-                <Button
-                  data-testid="welcome-create-widget-button"
-                  className={cn(editorActionButtonClass, "h-11 sm:h-[3.05rem] w-full sm:min-w-[224px] text-[11px] sm:text-[10px] bg-primary/10 text-primary border border-primary/20 hover:bg-primary/18 hover:scale-[1.01] shadow-sm shadow-primary/5 group/create overflow-hidden")}
-                  onClick={handleAddFirstWidget}
-                >
-                  <Plus className="size-4 sm:size-5 mr-3 shrink-0" />
-                  Create New
-                </Button>
-              )}
-            </div>
-
-            <div className="flex justify-center pt-2 w-full">
-              {githubTemplates.length > 0 ? (
-                <div className="w-full max-w-[38.5rem] rounded-3xl border border-zinc-200/80 dark:border-white/10 bg-white/40 dark:bg-zinc-950/20 px-3 py-3 sm:px-4 sm:py-4 backdrop-blur-sm space-y-2 sm:space-y-3">
-                  <div className="flex items-center justify-between px-1">
-                    <a 
-                      href="https://github.com/nobnobz/Omni-Template-Bot-Bid-Raiser" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center gap-2 opacity-70 hover:opacity-100 hover:text-primary transition-all group/tpl"
-                    >
-                      <Github className="size-3.5 text-primary group-hover/tpl:scale-110 transition-transform" />
-                      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground group-hover/tpl:text-primary">UME Templates</span>
-                    </a>
-                  </div>
-                  <div className="flex gap-1.5 sm:gap-2 p-1.5 rounded-2xl sm:rounded-3xl border border-zinc-200/60 dark:border-white/5 bg-white/60 dark:bg-card/55 backdrop-blur-sm transition-all focus-within:border-primary/30 h-11 sm:h-[3.25rem] items-center">
-                    <Popover open={isTemplatePopoverOpen} onOpenChange={setIsTemplatePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <button className="flex-1 h-full min-w-0 bg-transparent border-none focus:outline-none text-[11px] sm:text-[12px] font-bold pl-3 pr-4 appearance-none cursor-pointer hover:bg-muted/10 rounded-2xl transition-all text-left flex items-center justify-between group/select">
-                          <span className="truncate">
-                            {selectedTemplateUrl === 'luma:starter' ? 'UME v4.0 Hub Starter' : selectedTemplate ? formatTemplateLabel('UME Fusion Template', selectedTemplate) : 'Select Template...'}
-                          </span>
-                          <ChevronDown className={cn("size-3.5 text-muted-foreground/50 group-hover/select:text-primary transition-all shrink-0", isTemplatePopoverOpen && "rotate-180")} />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1 rounded-2xl border-border/40 bg-card/95 backdrop-blur-xl " align="start">
-                        <div className="flex flex-col gap-0.5 max-h-[160px] overflow-y-auto pr-1">
-                          {githubTemplates.map((template) => (
-                            <button
-                              key={template.rawUrl}
-                              onClick={() => {
-                                setSelectedTemplateUrl(template.rawUrl);
-                                setIsTemplatePopoverOpen(false);
-                              }}
-                              className={cn(
-                                "w-full px-4 py-3 rounded-2xl text-[12px] font-bold text-left transition-all flex items-center justify-between group active:scale-[0.98]",
-                                selectedTemplateUrl === template.rawUrl 
-                                  ? "bg-primary/10 text-primary" 
-                                  : "hover:bg-muted text-foreground/80 hover:text-foreground"
-                              )}
-                            >
-                              <span className="truncate">{template.rawUrl === 'luma:starter' ? 'UME v4.0 Hub Starter' : formatTemplateLabel('UME Fusion Template', template)}</span>
-                              {selectedTemplateUrl === template.rawUrl && <Check className="size-3.5 shrink-0" />}
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                    <Button
-                      onClick={handleLoadTemplate}
-                      disabled={isLoadingTemplates || !selectedTemplateUrl}
-                      size="sm"
-                      data-testid="welcome-load-template"
-                      className={cn(editorActionButtonClass, "h-11 sm:h-full min-w-[90px] sm:min-w-[120px] px-4 sm:px-6 text-[11px] sm:text-[10px] bg-primary hover:bg-primary/90 shadow-md shadow-primary/10")}
-                    >
-                      {isLoadingTemplates ? <RotateCcw className="size-4 animate-spin" /> : <><Download className="size-4 mr-2" />Load</>}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="ghost" className="h-12 w-full max-w-sm rounded-2xl border border-dashed border-border/60 bg-muted/10" disabled={isLoadingTemplates}>
-                  <Github className={cn("size-4 text-primary/80", isLoadingTemplates && "animate-pulse")} />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary/80 ml-2">
-                      {isLoadingTemplates ? 'Fetching Templates...' : 'UME Templates - No templates available'}
-                  </span>
-                </Button>
-              )}
-            </div>
-
-            <div className="flex justify-center pt-2 w-full">
+            <details className="group rounded-2xl border border-border/70 bg-card/50 px-4 py-3">
+              <summary className="cursor-pointer text-sm font-semibold marker:text-primary">Explore packs and formatter</summary>
+              <div className="flex justify-center pt-4 w-full">
               <div className="w-full max-w-[38.5rem] rounded-3xl border border-zinc-200/80 dark:border-white/10 bg-white/40 dark:bg-zinc-950/20 px-3 py-3 sm:px-4 sm:py-4 backdrop-blur-sm space-y-2 sm:space-y-3">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2 opacity-75">
@@ -1124,6 +1136,7 @@ export function MainEditor() {
                 </div>
               </div>
             </div>
+            </details>
           </div>
         </div>
       );
@@ -1172,26 +1185,26 @@ export function MainEditor() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5 lg:gap-2">
-                  <Button 
-                    data-testid="open-setup-guide" 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    data-testid="open-setup-guide"
+                    variant="ghost"
+                    size="sm"
                     className={cn(
-                      editorActionButtonClass, 
+                      editorActionButtonClass,
                       "group h-10 px-4 rounded-full border border-primary/10 bg-primary/[0.04] text-[10px] text-primary/80 transition-all duration-300 hover:bg-primary/10 hover:border-primary/20 hover:text-primary hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
-                    )} 
+                    )}
                     onClick={() => setShowHowToUse(true)}
                   >
                     <Book className="size-3.5 mr-2 transition-colors group-hover:text-primary" />
                     How To Use
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className={cn(
-                      editorActionButtonClass, 
+                      editorActionButtonClass,
                       "group h-10 px-4 rounded-full border border-red-500/10 bg-red-500/[0.04] text-[10px] text-red-500/80 transition-all duration-300 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-500 hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
-                    )} 
+                    )}
                     onClick={openSupportLink}
                   >
                     <Heart className="size-3.5 mr-2 fill-current transition-colors group-hover:text-red-500" />
@@ -1199,11 +1212,12 @@ export function MainEditor() {
                   </Button>
                   <div className="w-[1px] h-4 bg-border mx-2" />
                   <ThemeToggle className="size-10 rounded-full" />
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="size-10 rounded-full border border-zinc-500/10 bg-zinc-500/[0.04] text-zinc-500/70 transition-all duration-300 hover:scale-110 active:scale-95 hover:bg-zinc-500/10 hover:border-zinc-500/20 hover:text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300/80 dark:hover:bg-white/[0.07] dark:hover:text-zinc-100" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 rounded-full border border-zinc-500/10 bg-zinc-500/[0.04] text-zinc-500/70 transition-all duration-300 hover:scale-110 active:scale-95 hover:bg-zinc-500/10 hover:border-zinc-500/20 hover:text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300/80 dark:hover:bg-white/[0.07] dark:hover:text-zinc-100"
                     onClick={() => setShowRestartConfirm(true)}
+                    aria-label="Start over"
                   >
                     <RotateCcw className="size-4" />
                   </Button>
@@ -1223,7 +1237,7 @@ export function MainEditor() {
             <div className="flex items-center gap-2 text-[9.5px] font-mono tracking-[0.2em] font-medium uppercase text-muted-foreground/80">
               <span>V0.6.2</span><span className="size-1 rounded-full bg-foreground/20" /><span>BY BOT-BID-RAISER</span>
             </div>
-            <div className="text-[8.5px] font-mono tracking-[0.3em] uppercase opacity-75 text-foreground/80">BUILT WITH ANTIGRAVITY</div>
+
           </div>
         </footer>
       </main>
@@ -1234,12 +1248,12 @@ export function MainEditor() {
       {showImportMergeDialog && (
         <ImportMergeDialog
           open={showImportMergeDialog}
-          onOpenChange={(open) => { 
-            setShowImportMergeDialog(open); 
-            if (!open) { 
-              setInitialImportJson(undefined); 
-              setInitialImportFileName(undefined); 
-            } 
+          onOpenChange={(open) => {
+            setShowImportMergeDialog(open);
+            if (!open) {
+              setInitialImportJson(undefined);
+              setInitialImportFileName(undefined);
+            }
           }}
           initialJson={initialImportJson}
           initialFileName={initialImportFileName}

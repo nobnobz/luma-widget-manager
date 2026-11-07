@@ -105,6 +105,7 @@ test('opens the Fusion setup guide with dynamic template and recommended AIOMeta
 test('opens the AIOS UME formatter modal from the welcome screen', async ({ page }) => {
   await gotoWelcomePage(page);
 
+  await page.getByText('Explore packs and formatter').click();
   await expect(page.getByTestId('featured-formatter-card')).toBeVisible();
 
   await page.getByTestId('featured-formatter-card').click();
@@ -152,6 +153,7 @@ test('loads the mocked template, syncs the manifest, and creates a widget', asyn
   }
 
   await expect(page.getByText('AIOMetadata synced')).toBeVisible();
+  await page.getByText('Packs and tools', { exact: true }).click();
   await expect(page.getByTestId('manager-formatter-section')).toBeVisible();
 
   await page.getByTestId('new-widget-button').click();

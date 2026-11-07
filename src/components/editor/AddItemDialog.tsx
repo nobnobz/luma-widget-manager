@@ -95,7 +95,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
           <div className="space-y-1.5">
             <h2 className="text-2xl font-black tracking-tight max-sm:text-[1.35rem]">{dialogTitle}</h2>
             <p className="max-w-[360px] text-xs font-medium leading-relaxed text-muted-foreground/64 max-sm:max-w-none max-sm:text-[11px]">
-              {isLuma ? 'Create a catalog folder, or leave catalogs empty to build a hub page.' : 'Configure a new entry for your collection.'}
+              {isLuma ? 'Add catalogs and subfolders after creating the folder.' : 'Configure a new entry for your collection.'}
             </p>
           </div>
         </header>
@@ -165,7 +165,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
             </div>
           </div>
 
-          <div className="space-y-2 pt-4 border-t border-border/70 dark:border-white/8">
+          {!isLuma && <div className="space-y-2 pt-4 border-t border-border/70 dark:border-white/8">
             <div className="mb-1 flex items-center justify-between">
               <Label className="ml-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/48">
                 <Layers className="size-3" /> {isLuma ? 'Catalog (optional)' : 'Data Source'}
@@ -187,7 +187,7 @@ export function AddItemDialog({ onAdd, trigger }: AddItemDialogProps) {
                 </Button>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
       

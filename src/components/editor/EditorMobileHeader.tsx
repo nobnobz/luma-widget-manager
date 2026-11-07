@@ -24,7 +24,7 @@ import { ManagerSwitcher } from '@/components/ui/ManagerSwitcher';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import LogoImage from '@/../public/branding/clown_logo.png';
-import LumaLogoImage from '@/../public/branding/luma-icon.png';
+import LumaLogoImage from '@/../public/branding/luma-logo-transparent.png';
 
 interface EditorMobileHeaderProps {
   view: 'welcome' | 'selection' | 'editor';
@@ -68,13 +68,14 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
                 variant="ghost" size="icon"
                 className={cn(mobileHeaderActionClass, "text-primary/80 hover:text-primary")}
                 onClick={onShowHowToUse}
+                aria-label="How to use"
               >
                 <Book className="size-4" />
               </Button>
               
               <Drawer open={isOpen} onOpenChange={setIsOpen}>
                 <DrawerTrigger asChild>
-                  <Button variant="ghost" size="icon" className={mobileHeaderActionClass}>
+                  <Button variant="ghost" size="icon" className={mobileHeaderActionClass} aria-label="Open options">
                     <Ellipsis className="size-4" />
                   </Button>
                 </DrawerTrigger>
@@ -132,6 +133,7 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
                 size="icon" 
                 className={cn(mobileHeaderActionClass, "text-primary/80 hover:text-primary")} 
                 onClick={onShowHowToUse}
+                aria-label="How to use"
               >
                 <Book className="size-4" />
               </Button>
@@ -140,12 +142,13 @@ export const EditorMobileHeader = memo(function EditorMobileHeader({
                 size="icon"
                 className={mobileHeaderActionClass}
                 onClick={onShowRestartConfirm}
+                aria-label="Start over"
               >
                 <RotateCcw className="size-4" />
               </Button>
               <Drawer open={isOpen} onOpenChange={setIsOpen}>
                 <DrawerTrigger asChild>
-                  <Button variant="ghost" size="icon" className={mobileHeaderActionClass}>
+                  <Button variant="ghost" size="icon" className={mobileHeaderActionClass} aria-label="Open options">
                     <Ellipsis className="size-4" />
                   </Button>
                 </DrawerTrigger>

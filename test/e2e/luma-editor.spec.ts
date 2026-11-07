@@ -80,6 +80,7 @@ test('applies an animated cover pack through the single pack browser and include
   await page.route('**/Other/fusion-animated-covers*.json', route => route.fulfill({ json: [{ id: 'movies', title: 'Movies', videoURL: 'https://example.com/movie.mp4', backgroundURL: 'https://example.com/movie.jpg' }] }));
   await page.goto('/');
   await page.getByRole('button', { name: 'Load', exact: true }).click();
+  await page.getByText('Packs and tools', { exact: true }).click();
   await page.getByRole('button', { name: 'Install Preview Pack', exact: true }).first().click();
   await page.getByRole('button', { name: 'Apply to my folders', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'animations applied' })).toBeVisible();
@@ -100,10 +101,7 @@ test('creates catalog-free folders in collections, sections and subfolder grids 
   let dialog = page.getByRole('dialog', { name: 'Add New Folder', exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Create Folder', exact: true })).toBeDisabled();
-  await dialog.getByRole('button', { name: 'Add catalog', exact: true }).click();
-  await expect(dialog.getByText('Sync manifest first', { exact: true })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Delete data source', exact: true }).click();
-  await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toHaveCount(0);
   await dialog.getByRole('textbox', { name: 'Folder title', exact: true }).fill('New collection folder');
   await dialog.getByRole('button', { name: 'Create Folder', exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -116,7 +114,7 @@ test('creates catalog-free folders in collections, sections and subfolder grids 
     const addButtons = hub.getByRole('button', { name: /^Add folder$/i });
     await (location === 'section' ? addButtons.first() : addButtons.last()).click();
     dialog = page.getByRole('dialog', { name: 'Add New Folder', exact: true });
-    await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Add catalog', exact: true })).toHaveCount(0);
     await dialog.getByRole('textbox', { name: 'Folder title', exact: true }).fill(name);
     await dialog.getByRole('button', { name: 'Create Folder', exact: true }).click();
     await expect(dialog).toHaveCount(0);
@@ -183,6 +181,7 @@ test('builds catalog sections and filtered native catalogs through the hub edito
   await hub.getByRole('button', { name: 'Add TMDB catalog', exact: true }).click();
   await hub.getByText('1. New catalog · tmdb', { exact: true }).click();
   await hub.getByLabel('Catalog title', { exact: true }).fill('Sci-fi discoveries');
+  await hub.getByText('Filters and sorting', { exact: true }).click();
   await hub.getByLabel('Included genre IDs', { exact: true }).fill('878, 28');
   await hub.getByLabel('Year', { exact: true }).fill('2026');
   await hub.getByLabel('Minimum rating', { exact: true }).selectOption('7');
@@ -229,4 +228,84 @@ test('imports a native Luma Home envelope and downloads all genre sections witho
   const downloading = page.waitForEvent('download');
   await page.getByRole('button', { name: /^Download(?: JSON)?$/ }).filter({ visible: true }).click();
   expect((await downloading).suggestedFilename()).toBe('Luma-Home.json');
+});
+
+test('shows the nested page layout without horizontal overflow', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await page.screenshot({ path: testInfo.outputPath('welcome.png'), animations: 'disabled' });
+  await page.getByRole('button', { name: 'Load', exact: true }).click();
+  const hub = await openMovies(page);
+  const layout = hub.getByRole('region', { name: 'Page layout' });
+  await expect(layout).toContainText('Folder row');
+  await expect(layout).toContainText('Genres');
+  await layout.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('hub-layout.png'), animations: 'disabled' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await hub.getByRole('button', { name: /Expand item/i }).filter({ visible: true }).first().click();
+  await hub.getByRole('button', { name: 'Edit hub page', exact: true }).first().click();
+  const nested = page.getByRole('dialog').filter({ hasText: 'Folder level 2 of 3' }).last();
+  await expect(nested.getByRole('region', { name: 'Page layout' })).toContainText('Science fiction');
+  await page.screenshot({ path: testInfo.outputPath('nested-layout.png'), animations: 'disabled' });
+});
+
+test('manages synced add-on catalogs and filters together in the hub editor', async ({ page }) => {
+  const config = documentToEditor(starterDocument());
+  await page.addInitScript(value => {
+    localStorage.setItem('fusion-widgets-config', JSON.stringify(value));
+    localStorage.setItem('fusion-widget-manifest-catalogs', JSON.stringify([{ id: 'popular', type: 'movie', name: 'Popular films' }, { id: 'recent', type: 'movie', name: 'Recent films' }]));
+  }, config);
+  await page.goto('/');
+  const hub = await openMovies(page);
+  await hub.getByRole('button', { name: 'Choose synced catalog' }).click();
+  await page.getByRole('button', { name: /Popular films/ }).click();
+  await hub.getByText('1. Popular films · addon', { exact: true }).click();
+  await hub.getByText('Filters and sorting', { exact: true }).click();
+  await hub.getByLabel('Year', { exact: true }).fill('2024');
+  await hub.getByLabel('Catalog title', { exact: true }).fill('Favorites');
+  await hub.getByRole('button', { name: 'Done', exact: true }).click();
+  const native = await nativePreview(page);
+  expect(native[0].folders[0].sources[0]).toMatchObject({ title: 'Favorites', catalogId: 'movie::popular', contentFilters: { year: 2024 } });
+});
+
+test('retains existing catalogs and nested folders when editing a catalog', async ({ page }, testInfo) => {
+  const doc = starterDocument();
+  const folder = doc.collections[0].folders[0];
+  folder.sources = [
+    { id: 'existing', provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'movie::popular', title: 'Popular films', genre: 'Action', contentFilters: { year: 2020, includedGenreIDs: [28] }, customProviderSetting: { keep: true } },
+    { id: 'second', provider: 'tmdb', title: 'Discover', tmdbSourceType: 'DISCOVER', filters: { withGenres: '878' } },
+  ];
+  folder.catalogGroups = [{ id: 'favorites', title: 'Favorites', catalogIDs: ['existing', 'second'], customGroupSetting: 'keep' }];
+  folder.blockOrder = ['catalog:existing', `section:${folder.sections![0].id}`, 'catalog:second'];
+  folder.sections![0].folders[0].subfolders![0].sources = [{ id: 'nested', provider: 'addon', addonId: 'preset:aiometadata', type: 'movie', catalogId: 'movie::popular', title: 'Nested catalog' }];
+  const config = documentToEditor(doc);
+  await page.addInitScript(value => {
+    if (sessionStorage.getItem('catalog-retention-seeded')) return;
+    sessionStorage.setItem('catalog-retention-seeded', 'yes');
+    localStorage.setItem('fusion-widgets-config', JSON.stringify(value));
+    localStorage.setItem('fusion-widget-manifest-catalogs', JSON.stringify([{ id: 'popular', type: 'movie', name: 'Popular films' }]));
+  }, config);
+  await page.goto('/');
+  const before = await nativePreview(page);
+  expect(before[0].folders[0].sources).toMatchObject(folder.sources!);
+  expect(before[0].folders[0].catalogGroups).toEqual(folder.catalogGroups);
+  expect(before[0].folders[0].sections).toMatchObject(folder.sections!);
+  expect(before[0].folders[0].subfolders).toMatchObject(folder.subfolders!);
+  expect(before[0].folders[0].blockOrder).toEqual(folder.blockOrder);
+  const close = page.getByRole('button', { name: 'Close drawer', exact: true });
+  if (await close.isVisible()) await close.click(); else await page.keyboard.press('Escape');
+  const hub = await openMovies(page);
+  await hub.getByText('1. Popular films · addon', { exact: true }).click();
+  await hub.getByText('Filters and sorting', { exact: true }).first().click();
+  await hub.getByLabel('Year', { exact: true }).first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('catalog-editor.png'), animations: 'disabled' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await hub.getByLabel('Year', { exact: true }).first().fill('2024');
+  await hub.getByRole('button', { name: 'Done', exact: true }).click();
+  const after = await nativePreview(page);
+  const expected = structuredClone(before);
+  expected[0].folders[0].sources[0].contentFilters.year = 2024;
+  expect(after).toEqual(expected);
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('fusion-widgets-config') || '{}').widgets?.[0]?.dataSource?.payload?.items?.[0]?.lumaFolder?.sources?.[0]?.contentFilters?.year)).toBe(2024);
+  await page.reload();
+  expect(await nativePreview(page)).toEqual(expected);
 });
