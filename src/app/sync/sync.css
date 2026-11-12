@@ -199,9 +199,9 @@ body:has(.sync-web) { background: var(--background); }
 .sync-sort-row .sync-drag { margin-top: 5px; touch-action: none; cursor: grab; color: var(--muted-foreground); }
 .sync-sort-row .sync-drag:active { cursor: grabbing; }
 @media (max-width: 600px) {
-  .sync-area-grid { grid-template-columns: repeat(7, minmax(min-content, 1fr)); gap: 1px; padding: 3px; }
-  .sync-area { flex-direction: column; min-height: 48px; padding: 3px 1px; gap: 2px; font-size: clamp(.63rem, 2.45vw, .78rem); }
-  .sync-area span { overflow-wrap: normal; white-space: nowrap; }
+  .sync-area-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; padding: 3px; }
+  .sync-area { flex-direction: column; min-height: 48px; padding: 3px 1px; gap: 2px; font-size: clamp(.47rem, 1.95vw, .74rem); text-align: center; }
+  .sync-area span { overflow-wrap: normal; }
 }
 @media (max-width: 480px) {
   .sync-template-grid, .sync-tag-tools { grid-template-columns: minmax(0, 1fr); }
