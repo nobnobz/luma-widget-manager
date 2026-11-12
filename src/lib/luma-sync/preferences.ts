@@ -27,10 +27,10 @@ export const subtitleLanguages = ['English', 'Arabic', 'Bulgarian', 'Chinese', '
   'Ukrainian', 'Vietnamese'];
 const providerChoices = [['LOCAL', 'Luma'], ['TRAKT', 'Trakt'], ['SIMKL', 'Simkl'], ['MDBLIST', 'MDBList'], ['PUBLICMETADB', 'PublicMetaDB']] as const;
 export const formatterPresentationFields = [
-  toggle('playback.formatter.showTitles', 'Show Stream Titles'),
-  toggle('playback.formatter.showDetails', 'Show Stream Details'),
-  select('playback.formatter.placement', 'Badge Placement', 'BOTTOM', [['TOP', 'Above title'], ['BOTTOM', 'Below title']]),
-  select('playback.formatter.size', 'Badge Size', 'COMPACT',
+  toggle('playback.formatter.showTitles', 'Show stream titles'),
+  toggle('playback.formatter.showDetails', 'Show stream details'),
+  select('playback.formatter.placement', 'Badge placement', 'BOTTOM', [['TOP', 'Above title'], ['BOTTOM', 'Below title']]),
+  select('playback.formatter.size', 'Badge size', 'COMPACT',
     [['COMPACT', 'Compact'], ['STANDARD', 'Standard'], ['LARGE', 'Large'], ['EXTRA_LARGE', 'Extra Large'], ['HUGE', 'Huge']]),
 ];
 

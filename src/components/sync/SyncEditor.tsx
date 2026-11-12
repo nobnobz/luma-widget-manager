@@ -551,6 +551,8 @@ export function SyncEditor() {
     <main id="sync-main" tabIndex={-1} className={`sync-main${connected ? ' sync-setup' : ' sync-entry'}`}>
     <div className={connected ? 'sr-only' : 'sync-page-heading'}><h1>{connected ? 'Luma setup' : create ? 'Create account' : 'Sign in'}</h1></div>
     {!connected && <section className="sync-login">
+      <p className="sync-lede">{create ? 'Set up an account with a passkey. Your setup is encrypted on this device before it is stored on your Luma Sync server.'
+        : 'Edit your Luma setup in the browser. Sign in with the passkey you registered for Luma Sync. Your setup stays end-to-end encrypted.'}</p>
       {feedback}
       {parked && <p role="status" className="sync-banner">Session ended. Sign in with the same account to recover your draft.</p>}
       {available === null ? <p role="status" className="text-sm text-muted-foreground">Checking the server…</p> : !available ? <p className="text-sm text-muted-foreground">Open this page on your Luma Sync server.</p>
@@ -559,7 +561,7 @@ export function SyncEditor() {
             <label className="grid w-full max-w-xs gap-1 text-sm">First profile name<Input value={firstName} onChange={event => setFirstName(event.target.value)}
               autoComplete="off" required disabled={!!busy} /></label>
             {registration === 'invite' && <label className="grid w-full max-w-xs gap-1 text-sm">Invitation code<Input value={invite} onChange={e => setInvite(e.target.value)}
-              maxLength={256} autoComplete="off" spellCheck={false} required disabled={!!busy} /></label>}
+              maxLength={256} autoComplete="off" spellCheck={false} required disabled={!!busy} aria-describedby="sync-invite-hint" /><span id="sync-invite-hint" className="sync-setting-hint">The server operator gives you this code.</span></label>}
           </>}
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={!!busy || (!pending && registration === 'invite' && !invite.trim())}><KeyRound />{pending ? 'Confirm passkey' : 'Create passkey'}</Button>

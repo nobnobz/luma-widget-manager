@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Globe, RefreshCw, Smartphone } from 'lucide-react';
+import { ChevronRight, Globe, RefreshCw, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { SyncDevices, type SyncDevice } from '@/lib/luma-sync/devices';
@@ -80,8 +80,8 @@ export function DevicesPanel({ token, deviceID, supported, sessionEnded }: Props
           </li>;
         })}
       </ul>}
-      {removed.length > 0 && <details className="sync-device-removed">
-        <summary className="sync-record-summary">Recently removed ({removed.length})</summary>
+      {removed.length > 0 && <details className="sync-record sync-device-removed">
+        <summary className="sync-record-summary"><ChevronRight aria-hidden className="sync-chevron size-4" />Recently removed ({removed.length})</summary>
         <ul className="sync-device-list" aria-label="Recently removed devices">
           {removed.map(row => <li key={row.id} className="sync-device is-removed">
             {row.browser ? <Globe aria-hidden className="sync-device-icon" /> : <Smartphone aria-hidden className="sync-device-icon" />}
