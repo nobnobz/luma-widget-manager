@@ -9,12 +9,12 @@ import { isSkipField, newerFields, preferenceGroups, skipSchemaField, trackingGr
 import { LibraryLayoutEditor } from './LibraryLayoutEditor';
 import { GenreControl, PersonSectionsEditor, SearchAddonControl } from './MetadataControls';
 
-export function PreferenceControl({ field, value, unavailable, onChange }: {
-  field: PreferenceField; value?: Scalar | null; unavailable: boolean; onChange: (value: Scalar | null) => void;
+export function PreferenceControl({ field, value, inherited, unavailable, onChange }: {
+  field: PreferenceField; value?: Scalar | null; inherited?: Scalar | null; unavailable: boolean; onChange: (value: Scalar | null) => void;
 }) {
   const [invalid, setInvalid] = useState(false);
   const [numberDraft, setNumberDraft] = useState<string>();
-  const effective = value ?? field.fallback;
+  const effective = value ?? inherited ?? field.fallback;
   if (unavailable) return <div className="sync-setting">
     <span>{field.label}</span><p className="sync-setting-hint">Edit in Luma.</p>
   </div>;
@@ -119,7 +119,8 @@ export function PreferenceEditor({ section, values, unavailable, addons, onChang
       <summary className="sync-record-summary"><ChevronRight aria-hidden className="sync-chevron size-4" />{group.title}</summary>
       {tracking && group.title === 'Sources' && <p className="sync-setting-note">Choose which connected accounts Luma uses for watch progress and watchlists. Source selection does not connect an account. Use Sync watch activity above for two-way sync.</p>}
       {tracking && group.title === 'Library' && <LibraryLayoutEditor values={values} unavailable={unavailable} onChange={onChange} />}
-      {!!group.fields.length && <div className="sync-settings-grid">{group.fields.map(field => <PreferenceControl key={field.id} field={field} value={values[field.id]}
+      {!!group.fields.length && <div className="sync-settings-grid">{group.fields.map(field => <PreferenceControl key={field.id} field={field}
+        value={values[field.id]} inherited={field.id === 'home.posterYears' ? values['home.posterTitles'] : undefined}
         unavailable={unavailable.includes(field.id)} onChange={value => {
           const next = { ...values, [field.id]: value };
           if (isSkipField(field.id)) next[skipSchemaField] = 1;

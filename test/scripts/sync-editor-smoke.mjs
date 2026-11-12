@@ -512,6 +512,18 @@ scenario: try {
   await page.getByRole('button', { name: 'Preferences', exact: true }).click();
   await appBackground.selectOption('Midnight');
   const preferenceSearch = page.getByRole('searchbox', { name: 'Search settings' });
+  await preferenceSearch.fill('poster card size');
+  await page.getByRole('combobox', { name: 'Poster card size' }).selectOption('large');
+  await preferenceSearch.fill('skip forward and back');
+  const seekStep = page.getByRole('combobox', { name: 'Skip forward and back' });
+  assert.equal(await seekStep.getByRole('option', { name: 'Device default' }).count(), 1);
+  await seekStep.selectOption('30');
+  await preferenceSearch.fill('home');
+  await page.getByRole('checkbox', { name: 'Show titles under posters' }).uncheck();
+  const posterYears = page.getByRole('checkbox', { name: 'Show years under posters' });
+  assert.equal(await posterYears.isChecked(), false);
+  await posterYears.check();
+  await page.getByRole('combobox', { name: 'Row card orientation' }).selectOption('Landscape');
   await preferenceSearch.fill('subtitle');
   await page.getByLabel('Add subtitle language').selectOption('German');
   await page.getByLabel('Add subtitle language').selectOption('English');
@@ -651,6 +663,11 @@ scenario: try {
     manifestURL: addon.manifestURL, catalogID: 'discovered', type: 'movie', paginated: false,
   });
   assert.equal(docs.draft('1').preferences['appearance.background'], 'Midnight');
+  assert.equal(docs.draft('1').preferences['appearance.cardSize'], 'large');
+  assert.equal(docs.draft('1').preferences['playback.seekStep'], 30);
+  assert.equal(docs.draft('1').preferences['home.posterTitles'], false);
+  assert.equal(docs.draft('1').preferences['home.posterYears'], true);
+  assert.equal(docs.draft('1').preferences['home.rowCardOrientation'], 'Landscape');
   assert.equal(docs.draft('1').preferences['metadata.language'], 'de');
   assert.equal(docs.draft('1').preferences['metadata.hidePersonTitlesWithoutPoster'], true);
   assert.equal(docs.draft('1').preferences['metadata.searchProvider'], 'addons');
