@@ -8,12 +8,14 @@ import { connectionID, disconnected, managedProviders, ManagedConnections, provi
   type ConnectionChallenge, type ConnectionStatus, type ManagedProvider } from '@/lib/luma-sync/connections';
 import { SyncHTTPError } from '@/lib/luma-sync/passkey';
 import type { SyncDocuments } from '@/lib/luma-sync/documents';
+import { WatchActivity } from './WatchActivity';
 
 type Props = {
   token: string; profile: string; realm: string; documents: SyncDocuments;
   providers: readonly ManagedProvider[] | null; canChange: boolean; dirty: boolean;
   commit: (provider: ManagedProvider, value: string, expected: string | undefined, signal: AbortSignal) => Promise<void>;
   abandon: (provider: ManagedProvider, value: string, signal: AbortSignal) => Promise<boolean>;
+  commitWatch: (bindings: Partial<Record<ManagedProvider, string>>, signal: AbortSignal) => Promise<void>;
   sessionEnded: () => void;
 };
 function failureMessage(error: unknown) {
@@ -179,5 +181,7 @@ export function ProviderConnections(props: Props) {
     <p className="sync-setting-note">Connect once per profile. Existing direct sign-ins stay on their device. Account changes are saved immediately.</p>
     {props.dirty && <p className="sync-setting-note">Save or discard your setup changes before changing an account.</p>}
     <div className="grid gap-3 md:grid-cols-3">{managedProviders.map(provider => <ProviderAccount {...props} key={provider} provider={provider} />)}</div>
+    <WatchActivity token={props.token} profile={props.profile} documents={props.documents} providers={props.providers}
+      canChange={props.canChange} commit={props.commitWatch} sessionEnded={props.sessionEnded} />
   </section>;
 }

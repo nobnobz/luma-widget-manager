@@ -116,7 +116,7 @@ export function PreferenceEditor({ section, values, unavailable, addons, onChang
     <div className="sync-preference-groups">
     {groups.map((group, i) => <details key={group.title} className="sync-record sync-preference-group" open={!!search || i === 0 || undefined}>
       <summary className="sync-record-summary"><ChevronRight aria-hidden className="sync-chevron size-4" />{group.title}</summary>
-      {tracking && group.title === 'Sources' && <p className="sync-setting-note">Choose which connected accounts Luma uses for watch progress and watchlists. Source selection does not connect an account or enable two-way activity sync.</p>}
+      {tracking && group.title === 'Sources' && <p className="sync-setting-note">Choose which connected accounts Luma uses for watch progress and watchlists. Source selection does not connect an account. Use Sync watch activity above for two-way sync.</p>}
       {tracking && group.title === 'Library' && <LibraryLayoutEditor values={values} unavailable={unavailable} onChange={onChange} />}
       {!!group.fields.length && <div className="sync-settings-grid">{group.fields.map(field => <PreferenceControl key={field.id} field={field} value={values[field.id]}
         unavailable={unavailable.includes(field.id)} onChange={value => {

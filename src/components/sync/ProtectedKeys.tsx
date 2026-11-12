@@ -11,7 +11,7 @@ import { NativeRoot, normalizeKey, protectedKinds, protectedKindNames, validateK
 
 type Props = {
   token: string; master: Bytes; spaceID: string; documents: SyncDocuments; profile: string;
-  supported: boolean | null; canChange: boolean; dirty: boolean;
+  supported: boolean | null; refresh: number; canChange: boolean; dirty: boolean;
   commit: (kind: ProtectedKind, value: string, root: Bytes, signal: AbortSignal) => Promise<void>;
   sessionEnded: () => void;
 };
@@ -57,7 +57,7 @@ function KeyRow({ kind, entry, busy, canChange, save, remove }: { kind: Protecte
   </div>;
 }
 export function ProtectedKeysPanel(props: Props) {
-  const { token, master, spaceID, documents, profile, supported, canChange, dirty, commit, sessionEnded } = props;
+  const { token, master, spaceID, documents, profile, supported, refresh, canChange, dirty, commit, sessionEnded } = props;
   const client = useMemo(() => new NativeRoot(token, master, spaceID), [token, master, spaceID]);
   const [access, setAccess] = useState<Access>('loading');
   const [root, setRoot] = useState<Bytes | null>(null);
@@ -81,7 +81,7 @@ export function ProtectedKeysPanel(props: Props) {
       setAccess('error');
     });
     return () => { control.abort(); opened?.fill(0); setRoot(null); setEntries({}); };
-  }, [client, supported, attempt]);
+  }, [client, supported, attempt, refresh]);
   useEffect(() => {
     let current = true;
     void (async () => {

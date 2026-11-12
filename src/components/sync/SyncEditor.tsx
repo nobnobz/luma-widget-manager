@@ -179,6 +179,7 @@ export function SyncEditor() {
   const [automaticCatalogs, setAutomaticCatalogs] = useState(false);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [devicesSupported, setDevicesSupported] = useState<boolean | null>(null);
+  const [reloads, setReloads] = useState(0);
   const [keysSupported, setKeysSupported] = useState<boolean | null>(null);
   const [connectionProviders, setConnectionProviders] = useState<ManagedProvider[] | null>(null);
   const [registration, setRegistration] = useState<'invite' | 'open' | null>(null);
@@ -415,7 +416,7 @@ export function SyncEditor() {
   function refresh(discard = false) {
     const connection = transport.current;
     const mode = discard ? 'discard' : !workspace || workspace.documents.paused ? 'recover' : 'normal';
-    if (connection) run('load', signal => reload(connection, signal, workspace?.profile, undefined, mode));
+    if (connection) { setReloads(count => count + 1); run('load', signal => reload(connection, signal, workspace?.profile, undefined, mode)); }
   }
   function switchProfile(profile: string) {
     if (!workspace) return;
@@ -537,6 +538,21 @@ export function SyncEditor() {
       // Re-read confirms ambiguous replies on a retry and preserves all unrelated domains.
       await reload(connection, signal, workspace.profile);
       setStatus('Account connection saved to Luma Sync.');
+      return;
+    }
+  }
+  // Consent is written like account connections: at once, against the latest cursor, outside the setup draft. Native
+  // devices read it from the profile's common settings, so it is not part of the portal's editable preferences.
+  async function commitWatchActivity(bindings: Partial<Record<ManagedProvider, string>>, signal: AbortSignal) {
+    const connection = transport.current;
+    if (!connection || !workspace || active.current || dirty || stale) throw new Error('connection_changed');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const baseline = await connection.load(signal);
+      const documents = new SyncDocuments(baseline, await connection.realm(), connection.session.deviceID);
+      const snapshot = await documents.watchActivityPublication(workspace.profile, bindings);
+      try { await connection.publish(snapshot, baseline, signal); }
+      catch (error) { if (attempt === 0 && error instanceof SyncHTTPError && error.status === 409) continue; throw error; }
+      await reload(connection, signal, workspace.profile);
       return;
     }
   }
@@ -718,10 +734,10 @@ export function SyncEditor() {
             change={configuredAddons => edit({ ...workspace.draft, configuredAddons })} />}<CatalogManifestImport showStatus /></>}
         {tab === 'tracking' && transport.current && <ProviderConnections token={transport.current.session.token} profile={workspace.profile}
           realm={workspace.documents.draftBaseline(workspace.profile).realm} documents={workspace.documents} providers={connectionProviders}
-          dirty={dirty} canChange={!disabled && !dirty} commit={commitConnection} abandon={abandonConnection} sessionEnded={sessionEnded} />}
+          dirty={dirty} canChange={!disabled && !dirty} commit={commitConnection} abandon={abandonConnection} commitWatch={commitWatchActivity} sessionEnded={sessionEnded} />}
         {tab === 'preferences' && transport.current && <ProtectedKeysPanel token={transport.current.session.token} master={transport.current.session.master}
           spaceID={transport.current.session.spaceID} documents={workspace.documents} profile={workspace.profile} supported={keysSupported}
-          dirty={dirty} canChange={!disabled && !dirty} commit={commitProtectedKey} sessionEnded={sessionEnded} />}
+          refresh={reloads} dirty={dirty} canChange={!disabled && !dirty} commit={commitProtectedKey} sessionEnded={sessionEnded} />}
         {(tab === 'tracking' || tab === 'preferences') && <PreferenceEditor section={tab} values={workspace.draft.preferences}
           unavailable={workspace.draft.unavailablePreferences} addons={workspace.draft.addons} onChange={preferences => edit({ ...workspace.draft, preferences })} />}
         {tab === 'tags' && <FormatterEditor packs={workspace.draft.formatter} onChange={formatter => edit({ ...workspace.draft, formatter })}

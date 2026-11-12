@@ -1,6 +1,6 @@
 import { projectSyncAddons, publicManifestURL, readSyncAddons, type SyncAddon } from './addons';
 import { validateDocument, type Hub } from '../luma-document';
-import { base64, compare, int, json, object, parse, requireSync, unbase64, utf8, type JSONObject } from './wire';
+import { base64, compare, digest, int, json, object, parse, requireSync, unbase64, utf8, type JSONObject } from './wire';
 import { FORMATTER_FIELD, formatterValue, readFormatter, type FormatterPack } from './formatter';
 import { MAX_SYNC_HOME_WIDGETS } from '../luma-home-limits';
 import { isPreferenceField, isSkipField, skipFields, skipSchemaField, validPreferenceValue, type PreferenceSettings } from './preferences';
@@ -17,6 +17,7 @@ const ACCOUNT = '__account__';
 const PROFILE = 'profile', EPOCH = 'deletionEpoch', RESET = 'deletionMarker';
 const HOME = 'homeContent.v1', WIDGETS = 'homeWidgets.v1', COLLECTIONS = 'collections.v2', ADDONS = 'addons';
 const COMMON = 'commonSettings.v1';
+const WATCH_FIELD = 'progress.connectedAccounts';
 const editable = [HOME, WIDGETS, COLLECTIONS, ADDONS, COMMON];
 const allowed = [...editable, 'settings', 'settings.macos.v1', 'local-library.v1'];
 // AppleSyncDomain.allProfileDomains, in the order the native clients clear them.
@@ -341,6 +342,88 @@ export class SyncDocuments {
     const prior = existing ? object(decode(existing)) : undefined;
     const fields = { ...(prior && (prior.deletionEpoch ?? undefined) === this.epoch ? object(object(decode(prior.data)).fields) : {}) };
     fields[protectedField(kind)] = { value: register.value, revision: register.revision, deviceID: register.deviceID };
+    records[recordKey] = this.record(id, COMMON, { fields }, this.maximum + 1);
+    return { ...this.own, records };
+  }
+  /** AppleProfileSyncMerge.libraryCopyTag: binds a library consent to this generation of the profile slot. */
+  libraryCopyTag(id: string) {
+    this.profile(id);
+    const existence = this.roster.get(id)?.get('exists')?.stamp;
+    return digest(utf8.encode(`library-copy-v1|${id}|${existence?.counter ?? 0}|${existence?.device ?? ''}`));
+  }
+  /**
+   * The highest logical clock of the profile's local library (LocalLibrarySyncDocument entries), which is what a native
+   * device records as `counter` when it consents. Copy seeds (counter 1, writer "copy:…") never count as activity.
+   */
+  libraryCounter(id: string): number {
+    this.profile(id);
+    let maximum = 0;
+    for (const candidate of this.candidates(id, 'local-library.v1')) {
+      const document = object(decode(candidate.data));
+      requireSync(document.version === 1);
+      const entries = Object.values(object(document.entries));
+      requireSync(entries.length <= 150_000);
+      for (const raw of entries) {
+        const { stamp: clock } = object(raw), { counter, device } = object(clock);
+        requireSync(int(counter, 1) && typeof device === 'string' && device.length > 0 && device.length <= 128);
+        if (counter === 1 && device.startsWith('copy:')) continue;
+        maximum = Math.max(maximum, counter);
+      }
+    }
+    return maximum;
+  }
+  /** The consent a native device would honour for this profile: its accounts keyed by provider with their windows. */
+  async watchActivity(id: string): Promise<{ accounts: Record<string, { id: string; after: number; counter: number; binding: string }> } | null> {
+    const raw = this.commonRegisters(id).winners.get(WATCH_FIELD)?.value;
+    if (typeof raw !== 'string' || utf8.encode(raw).length >= 4096) return null;
+    try {
+      const value = object(JSON.parse(raw));
+      if (value.profileTag !== await this.libraryCopyTag(id)) return null;
+      const accounts: Record<string, { id: string; after: number; counter: number; binding: string }> = {};
+      for (const [provider, window] of Object.entries(object(value.accounts))) {
+        const { id: windowID, after, counter, binding } = object(window);
+        requireSync(managedProviders.includes(provider as ManagedProvider) && typeof windowID === 'string' && typeof after === 'number' &&
+          Number.isFinite(after) && int(counter) && typeof binding === 'string');
+        accounts[provider] = { id: windowID, after, counter, binding };
+      }
+      return Object.keys(accounts).length ? { accounts } : null;
+    } catch { return null; }
+  }
+  /**
+   * LumaLibraryBridgeSession.setLibraryBridge: one revision above every register of the profile's settings carries the consent
+   * (a removal when `bindings` is empty), and turning it on also chooses the Luma library as progress and watchlist source.
+   */
+  async watchActivityPublication(id: string, bindings: Partial<Record<ManagedProvider, string>>, now = Date.now()): Promise<Snapshot> {
+    if (this.paused) throw new Error('sync_reset');
+    this.profile(id);
+    const enabled = Object.keys(bindings).length > 0;
+    for (const provider of managedProviders) {
+      const binding = bindings[provider];
+      if (binding !== undefined) requireSync(connectionID(binding, this.realmID) && this.managedConnection(id, provider) === binding);
+    }
+    const tag = await this.libraryCopyTag(id), previous = await this.watchActivity(id);
+    const revision = this.commonRegisters(id).maximum + 1;
+    requireSync(int(revision, 1));
+    const counter = this.libraryCounter(id);
+    const accounts: Record<string, { after: number; binding: string; counter: number; id: string }> = {};
+    for (const provider of [...managedProviders].sort()) {
+      const binding = bindings[provider];
+      if (binding === undefined) continue;
+      const old = previous?.accounts[provider];
+      accounts[provider] = old?.binding === binding ? { after: old.after, binding, counter: old.counter, id: old.id }
+        : { after: now / 1000 - 978_307_200, binding, counter, id: crypto.randomUUID().toUpperCase() };
+    }
+    const encoded = JSON.stringify({ accounts, profileTag: tag }); // Keys in sorted order, as JSONEncoder .sortedKeys writes them.
+    requireSync(utf8.encode(encoded).length < 4096);
+    const records = { ...this.own.records }, recordKey = key(id, COMMON);
+    const existing = records[recordKey]?.value;
+    const prior = existing ? object(decode(existing)) : undefined;
+    const fields: Record<string, unknown> = { ...(prior && (prior.deletionEpoch ?? undefined) === this.epoch ? object(object(decode(prior.data)).fields) : {}) };
+    const register = (value?: unknown) => ({ ...(value === undefined ? {} : { value }), revision, deviceID: this.device });
+    fields[WATCH_FIELD] = register(enabled ? encoded : undefined);
+    if (enabled) {
+      fields['progress.source'] = register('LOCAL'); fields['progress.chosen'] = register(true); fields['library.source'] = register('LOCAL');
+    }
     records[recordKey] = this.record(id, COMMON, { fields }, this.maximum + 1);
     return { ...this.own, records };
   }
