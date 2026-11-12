@@ -149,7 +149,7 @@ body:has(.sync-web) { background: var(--background); }
 .sync-preview-heading::after { background: linear-gradient(90deg, var(--border), transparent); }
 .sync-preview-poster { aspect-ratio: 2 / 3; min-width: 0; align-items: end; border: 1px solid var(--border); border-radius: 6px; background: var(--muted); }
 .sync-preview-poster span { padding: 0 6px; color: var(--muted-foreground); font-size: clamp(1.2rem, 6vw, 2rem); font-weight: 700; line-height: 1.2; }
-.sync-area-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; padding: 4px; margin: 0;
+.sync-area-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; padding: 4px; margin: 0;
   border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
 .sync-area { display: flex; align-items: center; justify-content: center; min-height: 44px; gap: 6px; min-width: 0; padding: 6px 5px;
   border: 1px solid transparent; border-radius: 7px; font-size: .85rem; font-weight: 550; color: var(--foreground); cursor: pointer; }
@@ -188,7 +188,7 @@ body:has(.sync-web) { background: var(--background); }
 .sync-sort-row .sync-drag { margin-top: 5px; touch-action: none; cursor: grab; color: var(--muted-foreground); }
 .sync-sort-row .sync-drag:active { cursor: grabbing; }
 @media (max-width: 600px) {
-  .sync-area-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.25fr); gap: 1px; padding: 3px; }
+  .sync-area-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.25fr) minmax(0, 1fr); gap: 1px; padding: 3px; }
   .sync-area { flex-direction: column; min-height: 48px; padding: 3px 1px; gap: 2px; font-size: clamp(.63rem, 2.45vw, .78rem); }
   .sync-area span { overflow-wrap: normal; }
 }
@@ -425,3 +425,12 @@ body:has(.sync-web) { background: var(--background); }
   .sync-web .home-folder-grid .home-card-copy strong { font-size: .9rem; }
   .sync-web .home-folder-grid .home-card-detail { font-size: .76rem; }
 }
+
+.sync-device-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+.sync-device { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 12px 4px; border-bottom: 1px solid var(--border); }
+.sync-device-icon { flex: none; width: 20px; height: 20px; color: var(--muted-foreground); }
+.sync-device-copy { display: grid; flex: 1 1 12rem; min-width: 0; }
+.sync-device-copy strong { font-size: .95rem; font-weight: 550; overflow-wrap: anywhere; }
+.sync-device-copy .sync-setting-hint { flex: none; }
+.sync-device.is-removed { opacity: .72; }
+.sync-device-removed { margin-top: 14px; }

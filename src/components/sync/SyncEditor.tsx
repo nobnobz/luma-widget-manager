@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import Image from 'next/image';
 import { arrayMove } from '@dnd-kit/sortable';
-import { ArrowDown, ArrowUp, Check, Clock, Ellipsis, House, KeyRound, LogOut, Monitor, Moon, Plus, Puzzle, RefreshCw, Save, SlidersHorizontal, Sun, Tags, History, UsersRound } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Clock, Ellipsis, House, KeyRound, LogOut, Monitor, Moon, Plus, Puzzle, RefreshCw, Save, SlidersHorizontal, Sun, Tags, History, UsersRound, Smartphone } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { CatalogManifestImport, SyncCatalogProvider } from './SyncCatalogs';
 import { ConfiguredAddonsEditor } from './ConfiguredAddonsEditor';
 import { ProfileEditor } from './ProfileEditor';
 import { ProviderConnections } from './ProviderConnections';
+import { DevicesPanel } from './DevicesPanel';
 import { connectionID, ManagedConnections, managedProviders, type ManagedProvider } from '@/lib/luma-sync/connections';
 import { withBasePath } from '@/lib/base-path';
 import { MAX_SYNC_ADDONS, publicManifestURL } from '@/lib/luma-sync/addons';
@@ -175,6 +176,7 @@ function AddonsEditor({ draft, inherited, change }: { draft: SyncProfileDraft; i
 export function SyncEditor() {
   const [automaticCatalogs, setAutomaticCatalogs] = useState(false);
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [devicesSupported, setDevicesSupported] = useState<boolean | null>(null);
   const [connectionProviders, setConnectionProviders] = useState<ManagedProvider[] | null>(null);
   const [registration, setRegistration] = useState<'invite' | 'open' | null>(null);
   const [create, setCreate] = useState(false), [invite, setInvite] = useState('');
@@ -187,7 +189,7 @@ export function SyncEditor() {
   const feedbackRef = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const editorBar = useRef<HTMLDivElement>(null), workspaceStart = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState<'home' | 'addons' | 'tracking' | 'tags' | 'preferences'>('home');
+  const [tab, setTab] = useState<'home' | 'addons' | 'tracking' | 'tags' | 'preferences' | 'devices'>('home');
   const [status, setStatus] = useState(''), [error, setError] = useState('');
   const transport = useRef<SyncTransport | null>(null);
   const active = useRef<AbortController | null>(null);
@@ -208,6 +210,7 @@ export function SyncEditor() {
       setAvailable(value.widgetEditor === 1);
       setConnectionProviders(value.widgetConnections === 1 ? managedProviders.filter(provider =>
         value[provider === 'mdblist' ? 'mdbListConnections' : `${provider}Connections`] === 1) : null);
+      setDevicesSupported(value.widgetDevices === 1);
       setAutomaticCatalogs(value.widgetCatalogs === 1);
       if (value.widgetRegistration === 1 && (value.registration === 'open' || value.registration === 'invite')) setRegistration(value.registration);
     }).catch(() => {
@@ -599,6 +602,7 @@ export function SyncEditor() {
           ['tracking', 'Tracking', History],
           ['tags', 'Tags', Tags],
           ['preferences', 'Preferences', SlidersHorizontal],
+          ['devices', 'Devices', Smartphone],
         ] as const).map(([id, label, Icon]) => <button key={id} type="button" className="sync-area" aria-pressed={tab === id}
           aria-label={label} onClick={() => {
             if (tab === id) return;
@@ -670,6 +674,8 @@ export function SyncEditor() {
         {tab === 'tags' && <FormatterEditor packs={workspace.draft.formatter} onChange={formatter => edit({ ...workspace.draft, formatter })}
           preferences={workspace.draft.preferences} unavailable={workspace.draft.unavailablePreferences}
           onPreferences={preferences => edit({ ...workspace.draft, preferences })} />}
+        {tab === 'devices' && transport.current && <DevicesPanel token={transport.current.session.token} deviceID={transport.current.session.deviceID}
+          supported={devicesSupported} sessionEnded={sessionEnded} />}
       </fieldset></SyncCatalogProvider>
       {(ending || dirty || status.startsWith('Saved to Luma Sync.')) && <div className="sync-mobile-save">
         {ending && <p role="status" className="sync-expiry sync-expiry-mobile"><Clock aria-hidden="true" />{expiryLabel}</p>}
