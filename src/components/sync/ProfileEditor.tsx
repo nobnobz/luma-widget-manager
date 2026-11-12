@@ -8,9 +8,9 @@ import type { ProfileEdit, SyncProfile } from '@/lib/luma-sync/documents';
 import { avatarGroups, displayProfileName, editedProfileAvatar, editedProfileName, isBuiltInAvatar, profileFieldError } from '@/lib/luma-sync/profiles';
 
 type Template = { profile: SyncProfile; count: number };
-export function ProfileEditor({ profile, templates, preferred, saving, stale, serverError, close, restoreFocus, submit }: {
+export function ProfileEditor({ profile, templates, preferred, saving, stale, serverError, close, restoreFocus, submit, remove }: {
   profile?: SyncProfile; templates: Template[]; preferred: string; saving: boolean; stale: boolean; serverError: string;
-  close: () => void; restoreFocus: () => void; submit: (value: ProfileEdit) => void;
+  close: () => void; restoreFocus: () => void; submit: (value: ProfileEdit) => void; remove?: (id: string) => void;
 }) {
   const formID = useId();
   const [name, setName] = useState(profile?.name ?? '');
@@ -19,9 +19,18 @@ export function ProfileEditor({ profile, templates, preferred, saving, stale, se
   const [address, setAddress] = useState('');
   const [template, setTemplate] = useState(templates.some(item => item.profile.id === preferred) ? preferred : '');
   const [inherits, setInherits] = useState(profile?.inheritsAddons ?? false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(''), [confirming, setConfirming] = useState(false);
   const count = templates.find(item => item.profile.id === template)?.count ?? 0;
   const update = () => setError('');
+  if (confirming && profile && remove) return <DialogContent className="sync-confirm" onCloseAutoFocus={event => { event.preventDefault(); requestAnimationFrame(restoreFocus); }}>
+    <DialogTitle>Delete {displayProfileName(profile)}?</DialogTitle>
+    <DialogDescription>Home, add-ons, settings and library of this profile are removed from all your devices after their next sync. Connected tracking accounts of this profile are disconnected. This cannot be undone from the web.</DialogDescription>
+    {serverError && <p className="sync-banner sync-error" role="alert">{serverError}</p>}
+    <div className="sync-confirm-actions">
+      <Button type="button" variant="outline" disabled={saving} onClick={() => setConfirming(false)}>Keep profile</Button>
+      <Button type="button" variant="destructive" disabled={saving || stale} onClick={() => remove(profile.id)}>{saving ? 'Deleting…' : 'Delete profile'}</Button>
+    </div>
+  </DialogContent>;
   return <DialogContent className="sync-confirm" onCloseAutoFocus={event => { event.preventDefault(); requestAnimationFrame(restoreFocus); }}>
     <DialogTitle>{profile ? 'Edit profile' : 'Create profile'}</DialogTitle>
     <DialogDescription>{profile ? 'Update this profile on your synced Luma devices.' : 'Start fresh or copy the public add-ons from another profile.'}</DialogDescription>
@@ -61,6 +70,7 @@ export function ProfileEditor({ profile, templates, preferred, saving, stale, se
       </fieldset>
       {(error || serverError) && <p className="sync-banner sync-error mt-3" role="alert">{error || serverError}</p>}
       <div className="sync-confirm-actions mt-4">
+        {profile && remove && <Button type="button" variant="outline" className="sync-danger-outline sm:mr-auto" disabled={saving || stale} onClick={() => setConfirming(true)}>Delete profile…</Button>}
         <Button type="button" variant="outline" disabled={saving} onClick={close}>Cancel</Button>
         <Button type="submit" disabled={saving || stale}>{saving ? 'Saving…' : profile ? 'Save profile' : 'Create profile'}</Button>
       </div>

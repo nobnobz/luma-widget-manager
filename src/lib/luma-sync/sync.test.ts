@@ -526,3 +526,64 @@ test('metadata edits round-trip native person roles, future layout fields and th
   assert.deepEqual(roundTrip.preferences, preferences);
   assert.equal(readPersonLayout('{"version":2,"roles":{}}'), null);
 });
+
+// Fixtures follow what AppleProfileSyncMerge.reconcile and AppleNativeCloudSync.deleteProfileDomains publish:
+// "exists" turns false with the next list-wide stamp, other registers stay, and every domain that holds a
+// value is cleared by a value-less record with the next snapshot counter.
+test('deleting a secondary profile writes the native tombstone, domain removals and keeps everything else', () => {
+  const space = `luma-sync-v1.${'a'.repeat(64)}`, common = (slot: string) => `${prefix}.${slot}.commonSettings.v1`;
+  const fields = (name: string, count: number, who = device) => Object.fromEntries(Object.entries({ exists: true, name, avatar: '', pin: false,
+    admin: false, addons: false, plugins: true }).map(([key, value]) => [key, { value, stamp: stamp(count, who) }]));
+  const list = { profiles: [profile('1', 'Primary'), profile('2', 'Kids'), profile('3', 'Guest')],
+    revisions: { '1': { fields: fields('Primary', 3) }, '2': { fields: fields('Kids', 7) }, '3': { fields: fields('Guest', 5) } } };
+  const grant = `${space}:${second}`;
+  const source = { ...snapshot(device, {
+    [profileKey]: env('__account__', 'profile', list, 9),
+    [addonKey]: env('1', 'addons', [addon], 10),
+    [`${prefix}.2.addons`]: env('2', 'addons', [addon], 11),
+    [`${prefix}.2.homeWidgets.v1`]: env('2', 'homeWidgets.v1', rows({}), 12),
+    [common('2')]: env('2', 'commonSettings.v1', { fields: { 'integrations.traktConnection': { value: grant, revision: 4, deviceID: device } } }, 13),
+    [`${prefix}.2.local-library.v1`]: env('2', 'local-library.v1', { opaque: true }, 14),
+    [`${prefix}.3.addons`]: env('3', 'addons', [addon], 15),
+  }), realm: space };
+  const other = { ...snapshot(second, { [`${prefix}.2.collections.v2`]: env('2', 'collections.v2', rows({}), 16, second) }), realm: space };
+  const before = new SyncDocuments(loaded([[device, source], [second, other]]), space, browser);
+  const { snapshot: saved, grants } = before.profileDeletion('2');
+  assert.deepEqual(grants, [{ provider: 'trakt', id: second }]);
+  // Domains with a live value in any writer's snapshot, in native clearing order; none for domains without a value.
+  assert.deepEqual(Object.keys(saved.records), [profileKey, `${prefix}.2.commonSettings.v1`, `${prefix}.2.homeWidgets.v1`,
+    `${prefix}.2.collections.v2`, `${prefix}.2.addons`, `${prefix}.2.local-library.v1`]);
+  assert.deepEqual(saved.records[profileKey].stamp, stamp(17, browser));
+  const counters = Object.values(saved.records).map(record => record.stamp.counter);
+  assert.deepEqual(counters, [17, 18, 19, 20, 21, 22]);
+  for (const key of Object.keys(saved.records).slice(1)) assert.deepEqual(Object.keys(saved.records[key]), ['stamp']);
+  const roster = payload(saved.records, profileKey) as { profiles: { id: string }[]; revisions: Record<string, { fields: Record<string, { value: unknown; stamp: unknown }> }> };
+  assert.deepEqual(roster.profiles.map(row => row.id), ['1', '3']);
+  assert.deepEqual(Object.keys(roster.revisions), ['1', '2', '3']);
+  assert.deepEqual(roster.revisions['2'].fields.exists, { value: false, stamp: stamp(8, browser) });
+  assert.deepEqual(roster.revisions['2'].fields.name, { value: 'Kids', stamp: stamp(7) });
+  assert.deepEqual(roster.revisions['3'], { fields: list.revisions['3'].fields });
+  const after = new SyncDocuments(loaded([[device, source], [second, other], [browser, saved]]), space, browser);
+  assert.deepEqual(after.profiles.map(row => row.id), ['1', '3']);
+  assert.throws(() => after.draft('2'));
+  assert.equal(after.unusedProfileSlot, '4'); // A deleted slot is never reused from the web.
+  assert.equal(after.draft('3').addons.length, 1);
+  // The portal can read its own tombstones back and publish another edit after deleting.
+  assert.equal(after.profilePublication({ id: '3', name: 'Guests', avatar: '', inheritsAddons: false }).snapshot?.records[`${prefix}.2.addons`] !== undefined, true);
+});
+test('profile deletion refuses the primary slot, the last profile, unknown slots and paused accounts', () => {
+  const source = snapshot(device, { [profileKey]: env('__account__', 'profile', profiles, 1) });
+  const documents = new SyncDocuments(loaded([[device, source]]), realm, browser);
+  assert.throws(() => documents.profileDeletion('1'), /invalid_sync_data/);
+  assert.throws(() => documents.profileDeletion('5'));
+  const single = new SyncDocuments(loaded([[device, snapshot(device, { [profileKey]: env('__account__', 'profile', { profiles: [profile('1', 'Primary')] }, 1) })]]), realm, browser);
+  assert.throws(() => single.profileDeletion('1'));
+  const paused = new SyncDocuments(loaded([[device, snapshot(device, { [profileKey]: env('__account__', 'profile', profiles, 1),
+    [`${prefix}.__account__.deletionMarker`]: env('__account__', 'deletionMarker', { reset: true }, 2) })]]), realm, browser);
+  assert.throws(() => paused.profileDeletion('2'), /sync_reset/);
+  // The deleted profile's own previous edits are replaced by tombstones, not left alongside them.
+  const withOwn = snapshot(browser, { [`${prefix}.2.addons`]: env('2', 'addons', [addon], 3, browser) });
+  const owned = new SyncDocuments(loaded([[device, source], [browser, withOwn]]), realm, browser);
+  const { snapshot: saved } = owned.profileDeletion('2');
+  assert.deepEqual(Object.keys(saved.records[`${prefix}.2.addons`]), ['stamp']);
+});

@@ -496,6 +496,31 @@ export function SyncEditor() {
       }
     });
   }
+  function deleteProfile(id: string) {
+    const connection = transport.current;
+    if (!connection || !workspace || dirty || stale || !workspace.baseline.modern) return;
+    run('profile', async signal => {
+      const { snapshot, grants } = workspace.documents.profileDeletion(id);
+      await connection.publish(snapshot, workspace.baseline, signal);
+      signal.throwIfAborted();
+      setProfileForm(null);
+      // The roster is saved. Revoking the profile's provider grants is best effort, as a native client does before it publishes.
+      let revoked = true;
+      for (const grant of grants) {
+        try { await new ManagedConnections(grant.provider, id, connection.session.token).disconnect(grant.id, signal); }
+        catch { signal.throwIfAborted(); revoked = false; }
+      }
+      try {
+        await reload(connection, signal, '1');
+        setTab('home');
+        setStatus(revoked ? 'Profile deleted. Other devices remove it on their next sync.' : 'Profile deleted. Other devices remove it on their next sync. Some connected accounts could not be disconnected; revoke them in the provider’s account settings.');
+      } catch (failure) {
+        if (signal.aborted) return;
+        if (failure instanceof SyncHTTPError && failure.status === 401) { sessionEnded(); return; }
+        setStale(true); setStatus('Profile deleted. Reload to see the latest profiles.');
+      }
+    });
+  }
   async function commitConnection(provider: ManagedProvider, value: string, expected: string | undefined, signal: AbortSignal) {
     const connection = transport.current;
     if (!connection || !workspace || active.current || dirty || stale) throw new Error('connection_changed');
@@ -627,7 +652,8 @@ export function SyncEditor() {
         templates={profileForm === 'create' ? workspace.documents.profiles.map(profile => ({ profile, count: workspace.documents.publicAddonCount(profile.id) })).filter(row => row.count > 0) : []}
         preferred={workspace.profile} saving={busy === 'profile'} stale={stale} serverError={error}
         restoreFocus={() => { const target = profileTrigger.current; if (target && !target.disabled) target.focus({ preventScroll: true }); }}
-        close={() => { setProfileForm(null); setError(''); }} submit={saveProfile} />}
+        close={() => { setProfileForm(null); setError(''); }} submit={saveProfile}
+        remove={profileForm === 'edit' && activeProfile && Number(activeProfile.id) !== 1 && workspace.documents.profiles.length > 1 ? deleteProfile : undefined} />}
     </Dialog>
     <Dialog open={!!confirm} onOpenChange={open => { if (!open) setConfirm(null); }}>
       {confirm && <DialogContent className="sync-confirm" onCloseAutoFocus={event => {

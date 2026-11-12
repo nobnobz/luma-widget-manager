@@ -18,6 +18,8 @@ const HOME = 'homeContent.v1', WIDGETS = 'homeWidgets.v1', COLLECTIONS = 'collec
 const COMMON = 'commonSettings.v1';
 const editable = [HOME, WIDGETS, COLLECTIONS, ADDONS, COMMON];
 const allowed = [...editable, 'settings', 'settings.macos.v1', 'local-library.v1'];
+// AppleSyncDomain.allProfileDomains, in the order the native clients clear them.
+const profileDomains = ['settings', COMMON, 'settings.macos.v1', HOME, WIDGETS, COLLECTIONS, ADDONS, 'local-library.v1'];
 const key = (profile: string, domain: string) => `${PREFIX}.${profile}.${domain}`;
 const decode = (value: unknown) => parse(unbase64(value, 64_000_000));
 const encode = (value: unknown) => base64(json(value));
@@ -272,7 +274,7 @@ export class SyncDocuments {
         const group = this.groups.get(recordKey) ?? [];
         group.push({ stamp: revision, value, envelope }); this.groups.set(recordKey, group);
         if (writer === device) {
-          requireSync(profile === ACCOUNT ? domain === PROFILE : editable.includes(domain));
+          requireSync(profile === ACCOUNT ? domain === PROFILE : allowed.includes(domain));
           ownRecords.push([recordKey, { ...item, stamp: revision, value }]);
         }
       }
@@ -442,6 +444,39 @@ export class SyncDocuments {
       put(id, ADDONS, addons.map(({ id, manifestURL, name, enabled }, order) => ({ id, manifestURL, name, enabled, order })));
     }
     return { id, snapshot: { ...this.own, records } };
+  }
+  /**
+   * Delete a synced secondary profile exactly as a native client publishes it: the slot's "exists"
+   * register becomes false with the next list-wide logical stamp (AppleProfileSyncMerge.reconcile),
+   * and each profile domain that holds a value is cleared with a value-less record carrying the next
+   * snapshot counter (AppleNativeCloudSync.deleteProfileDomains, ConfigurationSyncBackend.stage).
+   * Other fields of the slot stay as they are. Grants returned here must be revoked after publishing.
+   */
+  profileDeletion(id: string): { snapshot: Snapshot; grants: { provider: ManagedProvider; id: string }[] } {
+    if (this.paused) throw new Error('sync_reset');
+    this.profile(id);
+    // ProfileSlotPolicy.permitsDeletion: never the primary slot, never the last profile.
+    requireSync(Number(id) !== 1 && this.profiles.length > 1 && this.profiles.some(row => Number(row.id) === 1));
+    const grants: { provider: ManagedProvider; id: string }[] = [];
+    for (const provider of managedProviders) {
+      try {
+        const grant = connectionID(this.managedConnection(id, provider), this.realmID);
+        if (grant) grants.push({ provider, id: grant });
+      } catch { /* A binding for another server or an unreadable value is not ours to revoke. */ }
+    }
+    const roster = new Map(this.roster), fields = new Map(roster.get(id));
+    let profileClock = 0, counter = this.maximum;
+    for (const entry of roster.values()) for (const field of entry.values()) profileClock = Math.max(profileClock, field.stamp.counter);
+    fields.set('exists', { value: false, stamp: nextStamp(profileClock + 1, this.device) });
+    roster.set(id, fields);
+    const records = { ...this.own.records };
+    records[key(ACCOUNT, PROFILE)] = this.record(ACCOUNT, PROFILE, {
+      profiles: projectProfiles(roster), revisions: Object.fromEntries([...roster].map(([slot, row]) => [slot, { fields: Object.fromEntries(row) }])),
+    }, ++counter);
+    for (const domain of profileDomains) {
+      if (this.candidates(id, domain).length) records[key(id, domain)] = { stamp: nextStamp(++counter, this.device) };
+    }
+    return { snapshot: { ...this.own, records }, grants };
   }
   private record(id: string, domain: string, data: unknown, counter: number): RecordEntry {
     return { stamp: nextStamp(counter, this.device), value: encode({
