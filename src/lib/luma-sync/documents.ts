@@ -466,7 +466,10 @@ export class SyncDocuments {
         if (!isPreferenceField(name) || newerSkip && isSkipField(name)) continue;
         // A reset per-device register (no value) means "default for this device type", not "fall back to the plain register".
         if (field.value === undefined) { if (isDeviceRegister(name)) preferences[name] = null; continue; }
-        if (validPreferenceValue(name, field.value)) preferences[name] = field.value;
+        // Older Apple TV clients could save seven featured titles. Show its
+        // current equivalent without changing the stored register.
+        const value = name === 'home.heroItemCount@tvos' && field.value === 7 ? 5 : field.value;
+        if (validPreferenceValue(name, value)) preferences[name] = value;
         else unavailablePreferences.push(name);
       }
       if (newerSkip) unavailablePreferences.push(...skipFields.map(field => field.id));

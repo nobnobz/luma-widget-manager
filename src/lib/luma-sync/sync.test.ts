@@ -335,6 +335,17 @@ test('a portable preference reset leaves other registers and unknown future choi
   assert.equal(original.rebaseDraft('1', { ...draft, preferences: { ...draft.preferences, 'appearance.background': null } }, latest), null);
 });
 
+test('an older Apple TV choice of seven banner items is readable without a rewrite', () => {
+  const field = 'home.heroItemCount@tvos', common = [prefix, '1', 'commonSettings.v1'].join('.');
+  const source = snapshot(device, { [profileKey]: env('__account__', 'profile', profiles, 1),
+    [common]: env('1', 'commonSettings.v1', { fields: { [field]: { value: 7, revision: 4, deviceID: device } } }, 2) });
+  const docs = new SyncDocuments(loaded([[device, source]]), realm, browser), draft = docs.draft('1');
+  assert.equal(draft.preferences?.[field], 5);
+  assert.equal(draft.unavailablePreferences.includes(field), false);
+  const saved = docs.publication('1', { ...draft, preferences: { ...draft.preferences, 'home.posterTitles': false } })!;
+  assert.deepEqual(payload(saved.records, common), { fields: { 'home.posterTitles': { value: false, revision: 5, deviceID: browser } } });
+});
+
 test('a native skip schema upgrade blocks old portal edits without blocking other preferences', () => {
   const common = `${prefix}.1.commonSettings.v1`, schema = 'playback.skip.schema', intro = 'playback.skip.intro.mode';
   const register = (value: unknown, revision: number) => ({ value, revision, deviceID: device });
