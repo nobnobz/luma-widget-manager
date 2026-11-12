@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FilePicker } from './FilePicker';
 import { PreferenceControl } from './PreferenceEditor';
-import { formatterPresentationFields, type PreferenceSettings } from '@/lib/luma-sync/preferences';
+import { deviceValue, formatterPresentationFields, type PreferenceSettings } from '@/lib/luma-sync/preferences';
 import { publicPacks, readPublicPack } from '@/lib/luma-sync/public-pack';
 import { ArtworkPreview } from '@/components/editor/ArtworkPreview';
 import { FORMATTER_LIMIT, MAX_FORMATTER_FILE, formatterArtworkURL, formatterValue, importFormatterPack, isUMEArtwork, type FormatterPack, type FormatterTag } from '@/lib/luma-sync/formatter';
@@ -41,10 +41,12 @@ function TagSwatches({ tags, label = 'Tag appearance' }: { tags: FormatterTag[];
 function SourcePresentation({ values, unavailable, change, tags }: {
   values: PreferenceSettings; unavailable: string[]; change: (values: PreferenceSettings) => void; tags: FormatterTag[];
 }) {
-  const size = ({ COMPACT: 1, STANDARD: 1.1, LARGE: 1.25, EXTRA_LARGE: 1.45, HUGE: 1.6 })[String(values['playback.formatter.size'] ?? 'COMPACT') as 'COMPACT'] ?? 1;
+  const size = ({ COMPACT: 1, STANDARD: 1.1, LARGE: 1.25, EXTRA_LARGE: 1.45, HUGE: 1.6 })[String(deviceValue(values, 'playback.formatter.size', 'ios') ?? 'COMPACT') as 'COMPACT'] ?? 1;
+  const placement = deviceValue(values, 'playback.formatter.placement', 'ios') ?? 'BOTTOM';
   const badges = <TagSwatches tags={tags.length ? tags : [{ name: '4K', pattern: '4K' }, { name: 'HDR', pattern: 'HDR' }]} label="Source badge preview" />;
   return <section className="mb-5" aria-labelledby="source-presentation-title">
     <h3 id="source-presentation-title" className="mb-2 text-sm font-semibold">Stream appearance</h3>
+    <p className="sync-setting-note">Badge placement and size are set for each device type under Per device. The preview shows iPhone &amp; iPad.</p>
     <div className="sync-stream-layout">
       <div className="sync-settings-grid">{formatterPresentationFields.map(field =>
         <PreferenceControl key={field.id} field={field} value={values[field.id]} unavailable={unavailable.includes(field.id)}
@@ -52,10 +54,10 @@ function SourcePresentation({ values, unavailable, change, tags }: {
       <div className="sync-tag-preview" aria-label="Source preview"
         style={{ '--sync-badge-height': `${23 * size}px`, '--sync-badge-font': `${.75 * size}rem` } as React.CSSProperties}>
         <p>Example stream</p>
-        {values['playback.formatter.placement'] === 'TOP' && badges}
+        {placement === 'TOP' && badges}
         {values['playback.formatter.showTitles'] !== false && <strong>4K Blu-ray</strong>}
         {values['playback.formatter.showDetails'] !== false && <p>2160p · HEVC · English</p>}
-        {values['playback.formatter.placement'] !== 'TOP' && badges}
+        {placement !== 'TOP' && badges}
       </div>
     </div>
   </section>;

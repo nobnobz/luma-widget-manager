@@ -43,7 +43,7 @@ body:has(.sync-web) { background: var(--background); }
 .sync-web :where(main, h2)[tabindex="-1"]:focus, .sync-preview [data-slot="dialog-title"][tabindex="-1"]:focus { outline: none; }
 @media (forced-colors: active) {
   :root:has(.sync-web) :where(button, input, select, textarea, summary, a[href], [tabindex]):focus-visible { outline-color: Highlight; }
-  .sync-area[aria-pressed="true"] span { text-decoration: underline; }
+  .sync-area[aria-pressed="true"] span, .sync-device-tab[aria-selected="true"] span { text-decoration: underline; }
 }
 .sync-skip { position: fixed; top: -100px; left: 16px; z-index: 60; padding: 8px 12px; background: var(--primary); color: var(--primary-foreground); }
 .sync-skip:focus { top: 12px; }
@@ -149,7 +149,7 @@ body:has(.sync-web) { background: var(--background); }
 .sync-preview-heading::after { background: linear-gradient(90deg, var(--border), transparent); }
 .sync-preview-poster { aspect-ratio: 2 / 3; min-width: 0; align-items: end; border: 1px solid var(--border); border-radius: 6px; background: var(--muted); }
 .sync-preview-poster span { padding: 0 6px; color: var(--muted-foreground); font-size: clamp(1.2rem, 6vw, 2rem); font-weight: 700; line-height: 1.2; }
-.sync-area-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; padding: 4px; margin: 0;
+.sync-area-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; padding: 4px; margin: 0;
   border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
 .sync-area { display: flex; align-items: center; justify-content: center; min-height: 44px; gap: 6px; min-width: 0; padding: 6px 5px;
   border: 1px solid transparent; border-radius: 7px; font-size: .85rem; font-weight: 550; color: var(--foreground); cursor: pointer; }
@@ -160,6 +160,17 @@ body:has(.sync-web) { background: var(--background); }
 .sync-area[aria-pressed="true"] svg { color: var(--foreground); }
 .sync-area-actions, .sync-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .sync-row-actions { margin-bottom: 6px; }
+.sync-area-note { margin: -6px 0 12px; font-size: .8rem; color: var(--muted-foreground); }
+.sync-device-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.sync-device-tab { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 0; padding: 6px 8px;
+  border: 1px solid transparent; border-radius: 7px; font-size: .88rem; font-weight: 550; color: var(--foreground); cursor: pointer; }
+.sync-device-tab span { min-width: 0; overflow-wrap: anywhere; }
+.sync-device-tab svg { flex: none; color: var(--muted-foreground); }
+.sync-device-tab:hover:not([aria-selected="true"]) { background: color-mix(in srgb, var(--secondary) 58%, var(--card)); }
+.sync-device-tab[aria-selected="true"] { background: var(--secondary); font-weight: 650; }
+.sync-device-tab[aria-selected="true"] svg { color: var(--foreground); }
+@media (max-width: 480px) { .sync-device-tab { flex-direction: column; gap: 2px; font-size: .78rem; } }
 .sync-setting-note { margin: 0 0 8px; font-size: .8rem; color: var(--muted-foreground); }
 .sync-template-grid, .sync-tag-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .sync-template, .sync-library-row { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 12px;
@@ -188,7 +199,7 @@ body:has(.sync-web) { background: var(--background); }
 .sync-sort-row .sync-drag { margin-top: 5px; touch-action: none; cursor: grab; color: var(--muted-foreground); }
 .sync-sort-row .sync-drag:active { cursor: grabbing; }
 @media (max-width: 600px) {
-  .sync-area-grid { grid-template-columns: repeat(6, minmax(min-content, 1fr)); gap: 1px; padding: 3px; }
+  .sync-area-grid { grid-template-columns: repeat(7, minmax(min-content, 1fr)); gap: 1px; padding: 3px; }
   .sync-area { flex-direction: column; min-height: 48px; padding: 3px 1px; gap: 2px; font-size: clamp(.63rem, 2.45vw, .78rem); }
   .sync-area span { overflow-wrap: normal; white-space: nowrap; }
 }

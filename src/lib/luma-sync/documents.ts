@@ -3,7 +3,7 @@ import { validateDocument, type Hub } from '../luma-document';
 import { base64, compare, digest, int, json, object, parse, requireSync, unbase64, utf8, type JSONObject } from './wire';
 import { FORMATTER_FIELD, formatterValue, readFormatter, type FormatterPack } from './formatter';
 import { MAX_SYNC_HOME_WIDGETS } from '../luma-home-limits';
-import { isPreferenceField, isSkipField, skipFields, skipSchemaField, validPreferenceValue, type PreferenceSettings } from './preferences';
+import { isDeviceRegister, isPreferenceField, isSkipField, skipFields, skipSchemaField, validPreferenceValue, type PreferenceSettings } from './preferences';
 import { isJellyfinCatalogReference } from './jellyfin';
 import { ConfiguredAddonCipher, configuredMaxRecords, configuredPrefix, type ConfiguredAddon } from './configured-addons';
 import { editedProfileAvatar, editedProfileName, isProfileSlot, profileSlots } from './profiles';
@@ -463,7 +463,9 @@ export class SyncDocuments {
       const { winners } = this.commonRegisters(id), version = winners.get(skipSchemaField)?.value;
       const newerSkip = version !== undefined && version !== 1;
       for (const [name, field] of winners) {
-        if (!isPreferenceField(name) || field.value === undefined || newerSkip && isSkipField(name)) continue;
+        if (!isPreferenceField(name) || newerSkip && isSkipField(name)) continue;
+        // A reset per-device register (no value) means "default for this device type", not "fall back to the plain register".
+        if (field.value === undefined) { if (isDeviceRegister(name)) preferences[name] = null; continue; }
         if (validPreferenceValue(name, field.value)) preferences[name] = field.value;
         else unavailablePreferences.push(name);
       }

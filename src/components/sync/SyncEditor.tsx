@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import Image from 'next/image';
 import { arrayMove } from '@dnd-kit/sortable';
-import { ArrowDown, ArrowUp, Check, Clock, Ellipsis, House, KeyRound, LogOut, Monitor, Moon, Plus, Puzzle, RefreshCw, Save, SlidersHorizontal, Sun, Tags, History, UsersRound, Smartphone } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Clock, Ellipsis, House, KeyRound, LogOut, Monitor, Moon, Plus, Puzzle, RefreshCw, Save, SlidersHorizontal, Sun, Tags, History, UsersRound, Smartphone, MonitorSmartphone } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { HomeEditor } from './HomeEditor';
 import { SortableRow, SortableRows } from './SortableRows';
 import { SetupLibrary } from './SetupLibrary';
 import { FormatterEditor } from './FormatterEditor';
+import { DevicePreferenceEditor } from './DevicePreferenceEditor';
 import { PreferenceEditor } from './PreferenceEditor';
 import { CatalogManifestImport, SyncCatalogProvider } from './SyncCatalogs';
 import { ConfiguredAddonsEditor } from './ConfiguredAddonsEditor';
@@ -193,7 +194,7 @@ export function SyncEditor() {
   const feedbackRef = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const editorBar = useRef<HTMLDivElement>(null), workspaceStart = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState<'home' | 'addons' | 'tracking' | 'tags' | 'preferences' | 'devices'>('home');
+  const [tab, setTab] = useState<'home' | 'addons' | 'tracking' | 'tags' | 'preferences' | 'device' | 'devices'>('home');
   const [status, setStatus] = useState(''), [error, setError] = useState('');
   const transport = useRef<SyncTransport | null>(null);
   const active = useRef<AbortController | null>(null);
@@ -667,6 +668,7 @@ export function SyncEditor() {
           ['tracking', 'Tracking', History],
           ['tags', 'Tags', Tags],
           ['preferences', 'Preferences', SlidersHorizontal],
+          ['device', 'Per device', MonitorSmartphone],
           ['devices', 'Devices', Smartphone],
         ] as const).map(([id, label, Icon]) => <button key={id} type="button" className="sync-area" aria-pressed={tab === id}
           aria-label={label} onClick={() => {
@@ -740,6 +742,8 @@ export function SyncEditor() {
           refresh={reloads} dirty={dirty} canChange={!disabled && !dirty} commit={commitProtectedKey} sessionEnded={sessionEnded} />}
         {(tab === 'tracking' || tab === 'preferences') && <PreferenceEditor section={tab} values={workspace.draft.preferences}
           unavailable={workspace.draft.unavailablePreferences} addons={workspace.draft.addons} onChange={preferences => edit({ ...workspace.draft, preferences })} />}
+        {tab === 'device' && <DevicePreferenceEditor values={workspace.draft.preferences} unavailable={workspace.draft.unavailablePreferences}
+          onChange={preferences => edit({ ...workspace.draft, preferences })} />}
         {tab === 'tags' && <FormatterEditor packs={workspace.draft.formatter} onChange={formatter => edit({ ...workspace.draft, formatter })}
           preferences={workspace.draft.preferences} unavailable={workspace.draft.unavailablePreferences}
           onPreferences={preferences => edit({ ...workspace.draft, preferences })} />}

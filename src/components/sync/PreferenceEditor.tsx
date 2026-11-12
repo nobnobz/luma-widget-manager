@@ -9,8 +9,8 @@ import { isSkipField, newerFields, preferenceGroups, skipSchemaField, trackingGr
 import { LibraryLayoutEditor } from './LibraryLayoutEditor';
 import { GenreControl, PersonSectionsEditor, SearchAddonControl } from './MetadataControls';
 
-export function PreferenceControl({ field, value, inherited, unavailable, onChange }: {
-  field: PreferenceField; value?: Scalar | null; inherited?: Scalar | null; unavailable: boolean; onChange: (value: Scalar | null) => void;
+export function PreferenceControl({ field, value, inherited, unavailable, defaultHint, onChange }: {
+  field: PreferenceField; value?: Scalar | null; inherited?: Scalar | null; unavailable: boolean; defaultHint?: string; onChange: (value: Scalar | null) => void;
 }) {
   const [invalid, setInvalid] = useState(false);
   const [numberDraft, setNumberDraft] = useState<string>();
@@ -52,7 +52,9 @@ export function PreferenceControl({ field, value, inherited, unavailable, onChan
         if (option) onChange(option[0]);
         else if (event.target.value === '__default__') onChange(null);
       }}>
-        {field.fallback === null && <option value="__default__">{isSkipField(field.id) ? 'Use app setting' : field.id === 'playback.seekStep' ? 'Device default' : 'Automatic'}</option>}
+        {field.fallback === null && <option value="__default__">{isSkipField(field.id) ? 'Use app setting' : 'Automatic'}</option>}
+        {field.kind === 'select' && effective !== null && !field.options.some(([item]) => item === effective) &&
+          <option value={String(effective)}>{String(effective)}</option>}
         {field.kind === 'locale' && typeof effective === 'string' && !field.options.some(([item]) => item === effective) &&
           <option value={effective}>{effective}</option>}
         {field.options.map(([option, label]) => <option key={String(option)} value={String(option)}>{label}</option>)}
@@ -76,6 +78,7 @@ export function PreferenceControl({ field, value, inherited, unavailable, onChan
     </label>}
     {value != null && <Button variant="ghost" type="button" size="icon" aria-label={`Reset ${field.label}`} title="Restore app default"
       onClick={() => { setNumberDraft(undefined); setInvalid(false); onChange(null); }}><RotateCcw className="size-4" /></Button>}
+    {defaultHint && <p className="sync-setting-hint">{defaultHint}</p>}
     {newerFields.has(field.id) && <p className="sync-setting-hint">Needs a Luma build that reads this setting.</p>}
     {invalid && field.kind === 'number' && <p className="sync-setting-hint text-destructive" role="status">Enter a number from {field.min} to {field.max}.</p>}
   </div>;
@@ -113,6 +116,8 @@ export function PreferenceEditor({ section, values, unavailable, addons, onChang
         }}><X /></Button>}
       </div>}
     </div>
+    {!tracking && <p className="sync-area-note">Applies to all devices of this profile. Screen, input and performance settings are under Per device.</p>}
+    {tracking && <p className="sync-area-note">Applies to all devices of this profile.</p>}
     {!groups.length && <p className="sync-empty" role="status">No settings found for “{query.trim()}”.</p>}
     <div className="sync-preference-groups">
     {groups.map((group, i) => <details key={group.title} className="sync-record sync-preference-group" open={!!search || i === 0 || undefined}>

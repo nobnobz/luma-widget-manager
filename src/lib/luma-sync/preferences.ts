@@ -7,7 +7,11 @@ import { personLayoutField, readPersonLayout } from './person-layout';
 // require an installed provider, its credentials or a platform slot stay native.
 export type Scalar = string | number | boolean;
 export type PreferenceSettings = Record<string, Scalar | null | undefined>;
-export type PreferenceField = { id: string; label: string } & (
+export const deviceTypes = ['ios', 'tvos', 'macos'] as const;
+export type DeviceType = typeof deviceTypes[number];
+export const deviceTypeLabels: Record<DeviceType, string> = { ios: 'iPhone & iPad', tvos: 'Apple TV', macos: 'Mac' };
+export type DeviceDefaults = Record<DeviceType, Scalar>;
+export type PreferenceField = { id: string; label: string; perDevice?: DeviceDefaults } & (
   { kind: 'toggle'; fallback: boolean } |
   { kind: 'select'; fallback: Scalar | null; options: readonly (readonly [Scalar, string])[] } |
   { kind: 'locale'; fallback: string; options: readonly (readonly [string, string])[] } |
@@ -19,6 +23,9 @@ const select = (id: string, label: string, fallback: Scalar | null, options: rea
   ({ id, label, fallback, options, kind: 'select' });
 const numeric = (id: string, label: string, fallback: number | null, min: number, max: number, step = 1, unit?: string): PreferenceField =>
   ({ id, label, fallback, min, max, step, unit, kind: 'number' });
+// Per-device fields keep one register per device type: `<id>@<ios|tvos|macos>`. `defaults` mirrors `perDevice:` in the Swift catalog.
+const everywhere = (value: Scalar): DeviceDefaults => ({ ios: value, tvos: value, macos: value });
+const perDevice = <T extends PreferenceField>(field: T, defaults: DeviceDefaults): T => ({ ...field, perDevice: defaults });
 const options = (values: readonly (number | string)[]) => values.map(value => [value, String(value)] as const);
 const languages = [['', 'System'], ['en', 'English'], ['de', 'Deutsch'], ['es', 'Español'], ['fr', 'Français'], ['it', 'Italiano'], ['pt-BR', 'Português (Brasil)'],
   ['zh-CN', '简体中文'], ['ja', '日本語'], ['ko', '한국어'], ['ru', 'Русский']] as const;
@@ -29,10 +36,10 @@ const providerChoices = [['LOCAL', 'Luma'], ['TRAKT', 'Trakt'], ['SIMKL', 'Simkl
 export const formatterPresentationFields = [
   toggle('playback.formatter.showTitles', 'Show stream titles'),
   toggle('playback.formatter.showDetails', 'Show stream details'),
-  select('playback.formatter.placement', 'Badge placement', 'BOTTOM', [['TOP', 'Above title'], ['BOTTOM', 'Below title']]),
-  select('playback.formatter.size', 'Badge size', 'COMPACT',
-    [['COMPACT', 'Compact'], ['STANDARD', 'Standard'], ['LARGE', 'Large'], ['EXTRA_LARGE', 'Extra Large'], ['HUGE', 'Huge']]),
 ];
+const badgePlacement = perDevice(select('playback.formatter.placement', 'Badge placement', 'BOTTOM', [['TOP', 'Above title'], ['BOTTOM', 'Below title']]), everywhere('BOTTOM'));
+const badgeSize = perDevice(select('playback.formatter.size', 'Badge size', 'COMPACT',
+  [['COMPACT', 'Compact'], ['STANDARD', 'Standard'], ['LARGE', 'Large'], ['EXTRA_LARGE', 'Extra Large'], ['HUGE', 'Huge']]), everywhere('COMPACT'));
 
 export const trackingGroups = [
   { title: 'Sources', fields: [select('progress.source', 'Watch progress', 'LOCAL', providerChoices), select('library.source', 'Watchlist', 'LOCAL', providerChoices)] },
@@ -65,21 +72,17 @@ export const preferenceGroups = [
   { title: 'Appearance', fields: [
     select('language', 'App language', '', languages),
     select('appearance.background', 'App background', 'Charcoal', options(['Charcoal', 'Black', 'Midnight', 'Forest', 'Plum', 'Slate', 'Wine', 'Ocean', 'Indigo', 'Crimson', 'Rust', 'Teal'])),
-    select('appearance.cardSize', 'Poster card size', 'standard', [['compact', 'Compact'], ['standard', 'Standard'], ['large', 'Large']]),
-    toggle('appearance.oled', 'Use true black', false), toggle('appearance.browseBlur', 'Blur browsing backgrounds'),
-    ...['Home', 'Catalogs', 'Search', 'Details', 'People'].map(label => toggle(`appearance.blur.${label.toLowerCase()}`, `Blur artwork in ${label}`)),
   ] },
   { title: 'Home', fields: [
-    toggle('home.heroEnabled', 'Show the featured banner on Home'), toggle('home.heroBackdropFullscreen', 'Fullscreen banner backdrop'),
+    toggle('home.heroEnabled', 'Show the featured banner on Home'),
     toggle('home.posterTitles', 'Show titles under posters'), toggle('home.posterYears', 'Show years under posters'),
-    select('home.rowCardOrientation', 'Row card orientation', 'Portrait', [['Portrait', 'Portrait'], ['Landscape', 'Landscape']]),
   ] },
   { title: 'Playback', fields: [
-    select('playback.seekStep', 'Skip forward and back', null, [5, 10, 15, 30, 60].map(n => [n, `${n} seconds`] as const)),
+    select('playback.streamSort', 'Sort sources', 'Default', [['Default', 'Default'], ['Quality', 'Quality'], ['Size', 'Size'], ['Name', 'Name']]),
     toggle('playback.autoNext', 'Play the next episode automatically'), numeric('playback.nextCountdown', 'Next episode countdown', 10, 1, 120, 1, 'seconds'),
     toggle('playback.postPlay', 'Show recommendations after playback'), toggle('playback.seekThumbnails', 'Show thumbnails while seeking'),
     toggle('playback.introSkip', 'Look up intro and credits markers'), toggle('playback.cachedOnly', 'Only show cached streams', false),
-    toggle('playback.preloadSources', 'Preload sources'), toggle('playback.sourceFallback', 'Try another source when playback fails'),
+    toggle('playback.sourceFallback', 'Try another source when playback fails'),
     toggle('playback.showEpisodes', 'Show episode picker'), toggle('playback.showSources', 'Show source picker'),
   ] },
   { title: 'Skip scenes', fields: skipFields },
@@ -92,11 +95,11 @@ export const preferenceGroups = [
   { title: 'Trailers', fields: [
     toggle('playback.trailersEnabled', 'Enable trailers'), toggle('playback.englishTrailers', 'Prefer English trailers'),
     select('playback.trailerLanguage', 'Trailer language', null, languages),
-    toggle('trailers.heroPreviews', 'Play previews in the featured banner'), toggle('trailers.heroWatched', 'Play previews for watched items in the banner'),
-    toggle('trailers.detailPreviews', 'Play previews on detail pages'), toggle('trailers.detailMovies', 'Play previews for movies'),
+    toggle('trailers.heroWatched', 'Play previews for watched items in the banner'),
+    toggle('trailers.detailMovies', 'Play previews for movies'),
     toggle('trailers.detailSeries', 'Play previews for series'), toggle('trailers.detailWatched', 'Play previews for watched items on detail pages', false),
-    toggle('trailers.detailInProgress', 'Play previews for items in progress', false), toggle('trailers.sound', 'Play preview sound', false),
-    numeric('trailers.delay', 'Preview delay', 3, 0, 30, 1, 'seconds'), numeric('trailers.volume', 'Preview volume', 100, 0, 100, 1, '%'),
+    toggle('trailers.detailInProgress', 'Play previews for items in progress', false),
+    numeric('trailers.delay', 'Preview delay', 3, 0, 30, 1, 'seconds'),
   ] },
   { title: 'Details and ratings', fields: [
     toggle('content.hideUnreleased', 'Hide unreleased titles', false), toggle('content.showFullDates', 'Show full release dates'),
@@ -133,17 +136,79 @@ export const preferenceGroups = [
     toggle('metadata.hidePersonTitlesWithoutPoster', 'Hide titles without a TMDB poster', false),
   ] },
 ];
+
+const blurFields = ['Home', 'Catalogs', 'Search', 'Details', 'People'].map(label =>
+  perDevice(toggle(`appearance.blur.${label.toLowerCase()}`, `Blur artwork in ${label}`), everywhere(true)));
+const heroCounts = options([5, 7, 10, 15, 20]);
+// Screen size, input and performance differ per device type, so these live in their own area. Defaults mirror `perDevice:` in the Swift catalog.
+export const deviceGroups: { title: string; fields: PreferenceField[] }[] = [
+  { title: 'Appearance', fields: [
+    perDevice(select('appearance.cardSize', 'Poster card size', 'standard', [['compact', 'Compact'], ['standard', 'Standard'], ['large', 'Large']]), everywhere('standard')),
+    perDevice(toggle('appearance.oled', 'Use true black', false), everywhere(false)),
+    perDevice(toggle('appearance.browseBlur', 'Blur browsing backgrounds'), everywhere(true)),
+    ...blurFields,
+  ] },
+  { title: 'Home', fields: [
+    perDevice(toggle('home.heroBackdropFullscreen', 'Fullscreen banner backdrop'), everywhere(true)),
+    perDevice(toggle('home.heroAutoRotate', 'Rotate the featured banner automatically', false), { ios: false, tvos: true, macos: false }),
+    perDevice(select('home.heroItemCount', 'Featured banner items', 5, heroCounts), { ios: 5, tvos: 7, macos: 5 }),
+    perDevice(select('home.rowCardOrientation', 'Row card orientation', 'Portrait', [['Portrait', 'Portrait'], ['Landscape', 'Landscape']]), everywhere('Portrait')),
+  ] },
+  { title: 'Playback', fields: [
+    perDevice(select('playback.seekStep', 'Skip forward and back', 10, [5, 10, 15, 30, 60].map(n => [n, `${n} seconds`] as const)), { ios: 10, tvos: 15, macos: 10 }),
+    perDevice(toggle('playback.preloadSources', 'Preload sources'), everywhere(true)),
+    badgePlacement, badgeSize,
+  ] },
+  { title: 'Trailers', fields: [
+    perDevice(toggle('trailers.heroPreviews', 'Play previews in the featured banner'), everywhere(true)),
+    perDevice(toggle('trailers.detailPreviews', 'Play previews on detail pages'), everywhere(true)),
+    perDevice(toggle('trailers.sound', 'Play preview sound', false), everywhere(false)),
+    perDevice(numeric('trailers.volume', 'Preview volume', 100, 0, 100, 1, '%'), everywhere(100)),
+  ] },
+];
 // Fields that need a Luma build which reads them (the portal only writes them when the user changes them).
-export const newerFields = new Set(['appearance.cardSize', 'playback.seekStep', 'home.heroEnabled', 'home.heroBackdropFullscreen', 'home.posterTitles', 'home.posterYears', 'home.rowCardOrientation']);
-const fields = new Map([...trackingGroups, ...preferenceGroups].flatMap(group => group.fields).map(field => [field.id, field]));
+export const newerFields = new Set(['appearance.cardSize', 'playback.seekStep', 'home.heroEnabled', 'home.heroBackdropFullscreen', 'home.posterTitles', 'home.posterYears', 'home.rowCardOrientation',
+  'home.heroAutoRotate', 'home.heroItemCount', 'playback.streamSort', 'playback.formatter.placement', 'playback.formatter.size']);
+const fields = new Map([...trackingGroups, ...preferenceGroups, ...deviceGroups].flatMap(group => group.fields).map(field => [field.id, field]));
 for (const field of formatterPresentationFields) fields.set(field.id, field);
 for (const row of libraryShelves) fields.set(row.field, toggle(row.field, row.label));
 fields.set('progress.chosen', toggle('progress.chosen', '', false));
 fields.set(skipSchemaField, select(skipSchemaField, '', null, [[1, 'Version 1']]));
 for (const id of [personGenreDefaultsField, 'metadata.personShowKnownFor', 'metadata.personShowTimeline']) fields.set(id, toggle(id, ''));
 const specialFields = new Set([libraryRowField, libraryOrderField, personGenreField, searchGenreField, searchAddonField, personLayoutField]);
-export const isPreferenceField = (name: string) => specialFields.has(name) || fields.has(name);
-export function validPreferenceValue(name: string, value: unknown): value is Scalar | null {
+/** The register name of a per-device field for one device type. */
+export const deviceKey = (id: string, type: DeviceType) => `${id}@${type}`;
+/** Splits a register name into the field id and its device type (none for profile-wide registers). */
+function splitDeviceKey(name: string): { id: string; type?: DeviceType } {
+  const at = name.lastIndexOf('@');
+  if (at < 0) return { id: name };
+  const type = deviceTypes.find(item => item === name.slice(at + 1)), id = name.slice(0, at);
+  return type && fields.get(id)?.perDevice ? { id, type } : { id: name };
+}
+/** True for a `<id>@<type>` register of a per-device field. */
+export const isDeviceRegister = (name: string) => splitDeviceKey(name).type !== undefined;
+export const isDeviceField = (id: string) => !!fields.get(id)?.perDevice;
+export const isPreferenceField = (name: string) => specialFields.has(name) || fields.has(name) || splitDeviceKey(name).type !== undefined;
+export const deviceDefault = (field: PreferenceField, type: DeviceType): Scalar => field.perDevice?.[type] ?? (field.fallback as Scalar);
+/** The values offered for a device type: Apple TV also offers 7 featured items. */
+export function deviceOptions(field: PreferenceField, type: DeviceType) {
+  if (field.kind !== 'select') return field;
+  return field.id === 'home.heroItemCount' && type !== 'tvos' ? { ...field, options: field.options.filter(([value]) => value !== 7) } : field;
+}
+/**
+ * What a device type uses: its own `<id>@<type>` register (null resets it), else the plain register older
+ * app versions wrote, else the per-type default. `null` means "not chosen" (the default applies).
+ */
+export function deviceValue(values: PreferenceSettings, id: string, type: DeviceType): Scalar | null {
+  const own = values[deviceKey(id, type)];
+  if (own !== undefined) return own;
+  return values[id] ?? null;
+}
+export function resolveDeviceValue(values: PreferenceSettings, field: PreferenceField, type: DeviceType): Scalar {
+  return deviceValue(values, field.id, type) ?? deviceDefault(field, type);
+}
+export function validPreferenceValue(registerName: string, value: unknown): value is Scalar | null {
+  const name = splitDeviceKey(registerName).id;
   if (name === libraryRowField) return value === null || value === '' || readLibraryRow(value) !== null;
   if (name === libraryOrderField) return value === null || validLibraryOrder(value);
   if (name === personLayoutField) return value === null || readPersonLayout(value) !== null;
