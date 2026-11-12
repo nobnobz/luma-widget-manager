@@ -42,7 +42,7 @@ const headers = [
   "default-src 'none'",
   `script-src ${scoped('/widgets/_next/static/')} 'wasm-unsafe-eval' ${[...hashes].join(' ')}`,
   "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob: https:", "media-src https:", "font-src 'self'",
-  `connect-src ${scoped('/v1/server', '/v1/passkeys/editor/', '/v1/snapshots', '/v2/snapshots/', '/v1/devices', '/v1/devices/', '/v1/editor/session', '/v1/editor/catalogs', '/v1/editor/catalog-preview', '/v1/connections/trakt/', '/v1/connections/simkl/', '/v1/connections/mdblist/', '/widgets/sync-assets/lzfse.wasm')} ${packSources}`,
+  `connect-src ${scoped('/v1/server', '/v1/passkeys/editor/', '/v1/snapshots', '/v2/snapshots/', '/v1/devices', '/v1/devices/', '/v1/native-secret-root', '/v1/editor/session', '/v1/editor/catalogs', '/v1/editor/catalog-preview', '/v1/connections/trakt/', '/v1/connections/simkl/', '/v1/connections/mdblist/', '/widgets/sync-assets/lzfse.wasm')} ${packSources}`,
   ...(configuredAddonsEnabled ? [`frame-src ${scoped(readerPath)}`] : []),
   "base-uri 'none'", "frame-ancestors 'none'", "form-action 'none'", "object-src 'none'", "worker-src 'none'",
 ].join('; ');

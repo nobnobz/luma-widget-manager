@@ -19,6 +19,8 @@ import { ConfiguredAddonsEditor } from './ConfiguredAddonsEditor';
 import { ProfileEditor } from './ProfileEditor';
 import { ProviderConnections } from './ProviderConnections';
 import { DevicesPanel } from './DevicesPanel';
+import { ProtectedKeysPanel } from './ProtectedKeys';
+import type { ProtectedKind } from '@/lib/luma-sync/protected-keys';
 import { connectionID, ManagedConnections, managedProviders, type ManagedProvider } from '@/lib/luma-sync/connections';
 import { withBasePath } from '@/lib/base-path';
 import { MAX_SYNC_ADDONS, publicManifestURL } from '@/lib/luma-sync/addons';
@@ -27,7 +29,7 @@ import { displayProfileName, editedProfileName, profileFieldError } from '@/lib/
 import { DraftVault, type LocalDraft } from '@/lib/luma-sync/draft-vault';
 import { beginRegistration, finishRegistration, signIn, SyncHTTPError, syncRequest, type EditorSession, type PendingRegistration } from '@/lib/luma-sync/passkey';
 import { SyncTransport, type LoadedSync } from '@/lib/luma-sync/transport';
-import { lzfseDecoder, uuid } from '@/lib/luma-sync/wire';
+import { lzfseDecoder, uuid, type Bytes } from '@/lib/luma-sync/wire';
 
 const PANEL = 'sync-panel';
 const ID_KEY = 'luma.widget-editor.browser-id.v1';
@@ -177,6 +179,7 @@ export function SyncEditor() {
   const [automaticCatalogs, setAutomaticCatalogs] = useState(false);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [devicesSupported, setDevicesSupported] = useState<boolean | null>(null);
+  const [keysSupported, setKeysSupported] = useState<boolean | null>(null);
   const [connectionProviders, setConnectionProviders] = useState<ManagedProvider[] | null>(null);
   const [registration, setRegistration] = useState<'invite' | 'open' | null>(null);
   const [create, setCreate] = useState(false), [invite, setInvite] = useState('');
@@ -211,6 +214,7 @@ export function SyncEditor() {
       setConnectionProviders(value.widgetConnections === 1 ? managedProviders.filter(provider =>
         value[provider === 'mdblist' ? 'mdbListConnections' : `${provider}Connections`] === 1) : null);
       setDevicesSupported(value.widgetDevices === 1);
+      setKeysSupported(value.widgetProtectedKeys === 1);
       setAutomaticCatalogs(value.widgetCatalogs === 1);
       if (value.widgetRegistration === 1 && (value.registration === 'open' || value.registration === 'invite')) setRegistration(value.registration);
     }).catch(() => {
@@ -536,6 +540,24 @@ export function SyncEditor() {
       return;
     }
   }
+  // Like account connections, a key change is published at once and never joins the setup draft.
+  async function commitProtectedKey(kind: ProtectedKind, value: string, root: Bytes, signal: AbortSignal) {
+    const connection = transport.current;
+    if (!connection || !workspace || active.current || dirty || stale) throw new Error('connection_changed');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const baseline = await connection.load(signal);
+      const documents = new SyncDocuments(baseline, await connection.realm(), connection.session.deviceID);
+      const keys = documents.protectedKeys(workspace.profile, root);
+      let register;
+      try { register = await keys.propose(value, documents.protectedRegister(workspace.profile, kind), kind, connection.session.deviceID); }
+      catch (error) { if (!(error instanceof SyncHTTPError)) throw new Error('key_invalid'); throw error; }
+      if (!register) return;
+      try { await connection.publish(documents.protectedKeyPublication(workspace.profile, kind, register), baseline, signal); }
+      catch (error) { if (attempt === 0 && error instanceof SyncHTTPError && error.status === 409) continue; throw error; }
+      await reload(connection, signal, workspace.profile);
+      return;
+    }
+  }
   async function abandonConnection(provider: ManagedProvider, value: string, signal: AbortSignal) {
     const connection = transport.current;
     if (!connection || !workspace) throw new Error('connection_changed');
@@ -697,6 +719,9 @@ export function SyncEditor() {
         {tab === 'tracking' && transport.current && <ProviderConnections token={transport.current.session.token} profile={workspace.profile}
           realm={workspace.documents.draftBaseline(workspace.profile).realm} documents={workspace.documents} providers={connectionProviders}
           dirty={dirty} canChange={!disabled && !dirty} commit={commitConnection} abandon={abandonConnection} sessionEnded={sessionEnded} />}
+        {tab === 'preferences' && transport.current && <ProtectedKeysPanel token={transport.current.session.token} master={transport.current.session.master}
+          spaceID={transport.current.session.spaceID} documents={workspace.documents} profile={workspace.profile} supported={keysSupported}
+          dirty={dirty} canChange={!disabled && !dirty} commit={commitProtectedKey} sessionEnded={sessionEnded} />}
         {(tab === 'tracking' || tab === 'preferences') && <PreferenceEditor section={tab} values={workspace.draft.preferences}
           unavailable={workspace.draft.unavailablePreferences} addons={workspace.draft.addons} onChange={preferences => edit({ ...workspace.draft, preferences })} />}
         {tab === 'tags' && <FormatterEditor packs={workspace.draft.formatter} onChange={formatter => edit({ ...workspace.draft, formatter })}

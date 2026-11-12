@@ -35,6 +35,12 @@ A change is ready to release when its existing-account and new-account flows pas
 
 The Devices area lists the account's active devices with their added date, and recently removed ones in a collapsed list. Browser sessions are labelled This browser or Web and have no remove action. Remove device asks for confirmation: the device stops syncing, its local data stays on it, and it can be connected again from Luma. The server must advertise `widgetDevices: 1`; otherwise the area explains that device management is unavailable. Device changes are immediate and independent of the setup draft.
 
+## API keys
+
+Preferences starts with an API keys group for the profile's personal TMDB and MDBList keys, shown only when the server advertises `widgetProtectedKeys: 1`. Each provider has a status (Set, Not set, Cannot be read on this server), a masked value with Show and Hide, a password-type input, Save or Replace, and Remove. Keys are sealed in the browser under the space's native secret root and published at once as that provider's register in the profile's common settings, like account connections; they never join the setup draft and need no unsaved-changes state. Apps receive them on their next sync.
+
+The browser opens the root from the copy the server keeps (`GET /v1/native-secret-root`) with a key derived from the content root, verifies it against the commitment, and holds it in memory while the panel is shown. A web-only account creates the root on the first save (`PUT`; the first commitment wins). If a root is committed but its copy cannot be opened, the panel asks you to open Luma on a device that has your keys, sync once and reload, and offers no editing. Registers the browser cannot open are kept as they are. A removal is a sealed empty value with the next odd revision, so it wins over a concurrent edit.
+
 ## Sync for configured add-ons
 
 When Luma Sync is already on, a compatible app publishes the profile's installed configured HTTPS manifests automatically. The manager can add an installation, replace its manifest link, rename its label, enable, reorder or remove it. Changes to provider settings such as filters or debrid accounts stay on the provider's own configuration page. An inheriting profile reads the primary profile's list; edit the list in the profile that owns it. Profile selection scopes the UI and edits; it is not a separate encryption boundary within the sync account.
@@ -51,4 +57,4 @@ In Tracking, each service shows its provider-confirmed username, connection stat
 
 Save or discard pending setup edits before changing an account. Account actions save immediately to the active profile using the existing encrypted `integrations.<provider>Connection` register. Switching keeps the old account until authorization and publication succeed. Cancelling a pending code removes that attempt, including a late grant. A failed save can be retried without authorizing again; a lost successful reply is recognized from the current register. Concurrent changes to that profile’s connection are never overwritten. Disconnect first revokes the server grant, then publishes the native `disconnected` marker; if publication fails, Retry save finishes it.
 
-Browser sessions have only start, poll, cancel, status and disconnect access. Private provider request relays, protected native API keys and account administration remain unavailable. Changing the progress/watchlist source does not enable two-way tracking consent.
+Browser sessions have only start, poll, cancel, status and disconnect access. Private provider request relays, account administration remains unavailable. Changing the progress/watchlist source does not enable two-way tracking consent.

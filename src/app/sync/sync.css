@@ -462,3 +462,6 @@ body:has(.sync-web) { background: var(--background); }
   .sync-web .home-toolbar > :last-child:not(:nth-child(2n)) { grid-column: 1 / -1; }
   .sync-web .home-toolbar > button { width: 100%; }
 }
+
+.sync-secret { display: inline-block; min-width: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); font: .85rem/1.5 var(--font-mono); overflow-wrap: anywhere; }
+.sync-panel > .sync-banner { margin-bottom: 12px; }

@@ -9,6 +9,7 @@ import { ConfiguredAddonCipher, configuredMaxRecords, configuredPrefix, type Con
 import { editedProfileAvatar, editedProfileName, isProfileSlot, profileSlots } from './profiles';
 import type { Bytes } from './wire';
 import type { LoadedSync } from './transport';
+import { protectedField, ProtectedKeys, type ProtectedKind, type ProtectedRegister } from './protected-keys';
 import { connectionField, connectionID, disconnected, managedProviders, type ManagedProvider } from './connections';
 
 const PREFIX = 'apple.kvs.sync.v2';
@@ -318,6 +319,28 @@ export class SyncDocuments {
     const revision = this.commonRegisters(id).maximum + 1;
     requireSync(int(revision, 1));
     fields[connectionField(provider)] = { value, revision, deviceID: this.device };
+    records[recordKey] = this.record(id, COMMON, { fields }, this.maximum + 1);
+    return { ...this.own, records };
+  }
+  /** The winning (highest revision, then device) protected key register, still sealed. */
+  protectedRegister(id: string, kind: ProtectedKind): ProtectedRegister | undefined {
+    this.profile(id);
+    const winner = this.commonRegisters(id).winners.get(protectedField(kind));
+    return winner ? { value: winner.value as string, revision: winner.revision, deviceID: winner.deviceID } : undefined;
+  }
+  protectedKeys(id: string, root: Bytes) {
+    this.profile(id);
+    return new ProtectedKeys(root, this.realmID, id, this.epoch);
+  }
+  /** Add one protected key register to this writer's common document; every other field is carried over unchanged. */
+  protectedKeyPublication(id: string, kind: ProtectedKind, register: ProtectedRegister): Snapshot {
+    if (this.paused) throw new Error('sync_reset');
+    this.profile(id);
+    const records = { ...this.own.records }, recordKey = key(id, COMMON);
+    const existing = records[recordKey]?.value;
+    const prior = existing ? object(decode(existing)) : undefined;
+    const fields = { ...(prior && (prior.deletionEpoch ?? undefined) === this.epoch ? object(object(decode(prior.data)).fields) : {}) };
+    fields[protectedField(kind)] = { value: register.value, revision: register.revision, deviceID: register.deviceID };
     records[recordKey] = this.record(id, COMMON, { fields }, this.maximum + 1);
     return { ...this.own, records };
   }
