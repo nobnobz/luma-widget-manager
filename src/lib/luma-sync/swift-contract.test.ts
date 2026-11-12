@@ -36,5 +36,6 @@ test('the per-device ids and per-type defaults match the native catalog', { skip
   assert.ok(native.has('playback.streamSort') && !native.get('playback.streamSort')!.perDevice);
   for (const value of ['Default', 'Quality', 'Size', 'Name']) assert.equal(validPreferenceValue('playback.streamSort', value), true);
   assert.equal(validPreferenceValue('playback.streamSort', 'Date'), false);
-  for (const count of [5, 7, 10, 15, 20]) assert.equal(validPreferenceValue('home.heroItemCount@tvos', count), true);
+  for (const count of [5, 10, 15, 20]) assert.equal(validPreferenceValue('home.heroItemCount@tvos', count), true);
+  assert.equal(validPreferenceValue('home.heroItemCount@tvos', 7), false);
 });

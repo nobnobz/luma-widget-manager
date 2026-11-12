@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { publicManifestURL, readSyncAddons } from './addons';
-import { deviceDefault, deviceGroups, deviceKey, deviceOptions, deviceValue, deviceTypes, isDeviceRegister, isPreferenceField, resolveDeviceValue, validPreferenceValue } from './preferences';
+import { deviceDefault, deviceGroups, deviceKey, deviceValue, deviceTypes, isDeviceRegister, isPreferenceField, resolveDeviceValue, validPreferenceValue } from './preferences';
 import { collectionHomeID, collectionSource, SyncDocuments } from './documents';
 import { readHomeFile, writeVisibleHome } from './home-files';
 import { MAX_HOME_FILE_ROWS, MAX_SYNC_HOME_WIDGETS } from '../luma-home-limits';
@@ -640,29 +640,28 @@ test('per-device registers are named <id>@<type> and validated like the plain fi
   assert.equal(isPreferenceField('appearance.cardSize@watch'), false);
   assert.equal(validPreferenceValue('playback.streamSort', 'Quality'), true);
   assert.equal(validPreferenceValue('playback.streamSort', 'quality'), false);
-  assert.equal(validPreferenceValue('home.heroItemCount@tvos', 7), true);
+  assert.equal(validPreferenceValue('home.heroItemCount@tvos', 7), false);
   assert.equal(validPreferenceValue('home.heroItemCount@ios', 8), false);
 });
 
 test('the device defaults and options follow the native catalog', () => {
   assert.equal(deviceFields.length, 20);
-  assert.deepEqual(deviceTypes.map(type => deviceDefault(field('playback.seekStep'), type)), [10, 15, 10]);
-  assert.deepEqual(deviceTypes.map(type => deviceDefault(field('home.heroItemCount'), type)), [5, 7, 5]);
-  assert.deepEqual(deviceTypes.map(type => deviceDefault(field('home.heroAutoRotate'), type)), [false, true, false]);
+  // Every platform shares one default; only the chosen value is per device type.
+  assert.deepEqual(deviceTypes.map(type => deviceDefault(field('playback.seekStep'), type)), [10, 10, 10]);
+  assert.deepEqual(deviceTypes.map(type => deviceDefault(field('home.heroItemCount'), type)), [5, 5, 5]);
+  assert.deepEqual(deviceTypes.map(type => deviceDefault(field('home.heroAutoRotate'), type)), [false, false, false]);
   assert.equal(deviceDefault(field('appearance.oled'), 'macos'), false);
-  const counts = (type: 'ios' | 'tvos' | 'macos') => (deviceOptions(field('home.heroItemCount'), type) as unknown as { options: [number, string][] }).options.map(([value]) => value);
-  assert.deepEqual(counts('ios'), [5, 10, 15, 20]);
-  assert.deepEqual(counts('macos'), [5, 10, 15, 20]);
-  assert.deepEqual(counts('tvos'), [5, 7, 10, 15, 20]);
+  const counts = (field('home.heroItemCount') as unknown as { options: [number, string][] }).options.map(([value]) => value);
+  assert.deepEqual(counts, [5, 10, 15, 20], 'every device type offers the same choices');
 });
 
 test('a device value reads its own register, then the plain register, then the type default, and a reset beats the plain register', () => {
   const seek = field('playback.seekStep');
-  assert.equal(resolveDeviceValue({}, seek, 'tvos'), 15);
+  assert.equal(resolveDeviceValue({}, seek, 'tvos'), 10);
   assert.equal(resolveDeviceValue({ 'playback.seekStep': 30 }, seek, 'tvos'), 30);
   assert.equal(resolveDeviceValue({ 'playback.seekStep': 30, 'playback.seekStep@tvos': 5 }, seek, 'tvos'), 5);
   assert.equal(resolveDeviceValue({ 'playback.seekStep': 30, 'playback.seekStep@tvos': 5 }, seek, 'ios'), 30);
-  assert.equal(resolveDeviceValue({ 'playback.seekStep': 30, 'playback.seekStep@tvos': null }, seek, 'tvos'), 15);
+  assert.equal(resolveDeviceValue({ 'playback.seekStep': 30, 'playback.seekStep@tvos': null }, seek, 'tvos'), 10);
   assert.equal(deviceValue({ 'playback.seekStep@tvos': null }, 'playback.seekStep', 'tvos'), null);
 });
 
@@ -687,9 +686,9 @@ test('editing an Apple TV value writes only its @tvos register and leaves the iO
   assert.equal(values['home.heroItemCount'], 10);
   const reset = after.publication('1', { ...after.draft('1'), preferences: { ...values, [key]: null } })!;
   assert.deepEqual((payload(reset.records, common) as { fields: Record<string, unknown> }).fields, { [key]: { revision: 11, deviceID: browser } });
-  // After the reset the Apple TV uses its type default (7), not the legacy plain 10; the other types are unaffected.
+  // After the reset the Apple TV uses the shared default (5), not the legacy plain 10; the other types are unaffected.
   const final = new SyncDocuments(loaded([[device, native], [browser, reset]]), realm, browser).draft('1').preferences!;
-  assert.equal(resolveDeviceValue(final, field('home.heroItemCount'), 'tvos'), 7);
+  assert.equal(resolveDeviceValue(final, field('home.heroItemCount'), 'tvos'), 5);
   assert.equal(resolveDeviceValue(final, field('home.heroItemCount'), 'ios'), 15);
   assert.equal(final['home.heroItemCount'], 10);
 });

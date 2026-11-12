@@ -139,7 +139,7 @@ export const preferenceGroups = [
 
 const blurFields = ['Home', 'Catalogs', 'Search', 'Details', 'People'].map(label =>
   perDevice(toggle(`appearance.blur.${label.toLowerCase()}`, `Blur artwork in ${label}`), everywhere(true)));
-const heroCounts = options([5, 7, 10, 15, 20]);
+const heroCounts = options([5, 10, 15, 20]);
 // Screen size, input and performance differ per device type, so these live in their own area. Defaults mirror `perDevice:` in the Swift catalog.
 export const deviceGroups: { title: string; fields: PreferenceField[] }[] = [
   { title: 'Appearance', fields: [
@@ -150,12 +150,12 @@ export const deviceGroups: { title: string; fields: PreferenceField[] }[] = [
   ] },
   { title: 'Home', fields: [
     perDevice(toggle('home.heroBackdropFullscreen', 'Fullscreen banner backdrop'), everywhere(true)),
-    perDevice(toggle('home.heroAutoRotate', 'Rotate the featured banner automatically', false), { ios: false, tvos: true, macos: false }),
-    perDevice(select('home.heroItemCount', 'Featured banner items', 5, heroCounts), { ios: 5, tvos: 7, macos: 5 }),
+    perDevice(toggle('home.heroAutoRotate', 'Rotate the featured banner automatically', false), { ios: false, tvos: false, macos: false }),
+    perDevice(select('home.heroItemCount', 'Featured banner items', 5, heroCounts), { ios: 5, tvos: 5, macos: 5 }),
     perDevice(select('home.rowCardOrientation', 'Row card orientation', 'Portrait', [['Portrait', 'Portrait'], ['Landscape', 'Landscape']]), everywhere('Portrait')),
   ] },
   { title: 'Playback', fields: [
-    perDevice(select('playback.seekStep', 'Skip forward and back', 10, [5, 10, 15, 30, 60].map(n => [n, `${n} seconds`] as const)), { ios: 10, tvos: 15, macos: 10 }),
+    perDevice(select('playback.seekStep', 'Skip forward and back', 10, [5, 10, 15, 30, 60].map(n => [n, `${n} seconds`] as const)), { ios: 10, tvos: 10, macos: 10 }),
     perDevice(toggle('playback.preloadSources', 'Preload sources'), everywhere(true)),
     badgePlacement, badgeSize,
   ] },
@@ -190,11 +190,6 @@ export const isDeviceRegister = (name: string) => splitDeviceKey(name).type !== 
 export const isDeviceField = (id: string) => !!fields.get(id)?.perDevice;
 export const isPreferenceField = (name: string) => specialFields.has(name) || fields.has(name) || splitDeviceKey(name).type !== undefined;
 export const deviceDefault = (field: PreferenceField, type: DeviceType): Scalar => field.perDevice?.[type] ?? (field.fallback as Scalar);
-/** The values offered for a device type: Apple TV also offers 7 featured items. */
-export function deviceOptions(field: PreferenceField, type: DeviceType) {
-  if (field.kind !== 'select') return field;
-  return field.id === 'home.heroItemCount' && type !== 'tvos' ? { ...field, options: field.options.filter(([value]) => value !== 7) } : field;
-}
 /**
  * What a device type uses: its own `<id>@<type>` register (null resets it), else the plain register older
  * app versions wrote, else the per-type default. `null` means "not chosen" (the default applies).

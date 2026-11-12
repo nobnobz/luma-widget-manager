@@ -3,7 +3,7 @@
 import { useId, useState } from 'react';
 import { Laptop, Smartphone, Tv } from 'lucide-react';
 import {
-  deviceDefault, deviceGroups, deviceKey, deviceOptions, deviceTypeLabels, deviceTypes, deviceValue,
+  deviceDefault, deviceGroups, deviceKey, deviceTypeLabels, deviceTypes, deviceValue,
   type DeviceType, type PreferenceField, type PreferenceSettings, type Scalar,
 } from '@/lib/luma-sync/preferences';
 import { PreferenceControl } from './PreferenceEditor';
@@ -44,7 +44,7 @@ export function DevicePreferenceEditor({ values, unavailable, onChange }: {
       {deviceGroups.map((group, index) => <details key={group.title} className="sync-record sync-preference-group" open={index === 0 || undefined}>
         <summary className="sync-record-summary">{group.title}</summary>
         <div className="sync-settings-grid">{group.fields.map(source => {
-          const field = deviceOptions(source, type), fallback = deviceDefault(source, type), value = deviceValue(values, source.id, type);
+          const field = source, fallback = deviceDefault(source, type), value = deviceValue(values, source.id, type);
           const key = deviceKey(source.id, type);
           return <PreferenceControl key={`${type}:${source.id}`} field={{ ...field, fallback } as PreferenceField} value={value}
             unavailable={unavailable.includes(key)}
