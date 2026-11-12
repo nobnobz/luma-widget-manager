@@ -10,6 +10,9 @@ import { SyncHTTPError } from '@/lib/luma-sync/passkey';
 type Props = { token: string; deviceID: string; supported: boolean | null; sessionEnded: () => void };
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
 const added = (time: number) => dateFormat.format(time);
+// A browser slot is named by the portal itself, so its stored name says little: lead with what it is.
+const title = (row: SyncDevice, current: string) => row.browser ? (row.id === current ? 'This browser' : 'Web browser') : row.name || 'Unnamed device';
+const detail = (row: SyncDevice) => `${row.browser && row.name ? `${row.name} · ` : ''}Added ${added(row.createdAt)}`;
 function failure(error: unknown, action: 'load' | 'remove') {
   if (error instanceof SyncHTTPError) {
     if (error.status === 403) return action === 'remove' ? 'This device cannot be removed here. Browser sessions end when they sign out.' : 'This server does not allow device management for this session.';
@@ -72,9 +75,9 @@ export function DevicesPanel({ token, deviceID, supported, sessionEnded }: Props
           const Icon = row.browser ? Globe : Smartphone;
           return <li key={row.id} className="sync-device">
             <Icon aria-hidden className="sync-device-icon" />
-            <div className="sync-device-copy"><strong>{row.name || 'Unnamed device'}</strong>
-              <span className="sync-setting-hint">Added {added(row.createdAt)}</span></div>
-            {row.browser ? <span className="sync-meta">{row.id === deviceID ? 'This browser' : 'Web'}</span>
+            <div className="sync-device-copy"><strong>{title(row, deviceID)}</strong>
+              <span className="sync-setting-hint">{detail(row)}</span></div>
+            {row.browser ? null
               : <Button type="button" variant="outline" className="sync-danger-outline" aria-label={`Remove ${row.name || 'unnamed device'}`}
                 onClick={() => { setRemoveError(''); setNotice(''); setTarget(row); }}>Remove device</Button>}
           </li>;
@@ -85,8 +88,8 @@ export function DevicesPanel({ token, deviceID, supported, sessionEnded }: Props
         <ul className="sync-device-list" aria-label="Recently removed devices">
           {removed.map(row => <li key={row.id} className="sync-device is-removed">
             {row.browser ? <Globe aria-hidden className="sync-device-icon" /> : <Smartphone aria-hidden className="sync-device-icon" />}
-            <div className="sync-device-copy"><strong>{row.name || 'Unnamed device'}</strong>
-              <span className="sync-setting-hint">Added {added(row.createdAt)} · Removed {added(row.revokedAt!)}</span></div>
+            <div className="sync-device-copy"><strong>{title(row, deviceID)}</strong>
+              <span className="sync-setting-hint">{detail(row)} · Removed {added(row.revokedAt!)}</span></div>
           </li>)}
         </ul>
       </details>}

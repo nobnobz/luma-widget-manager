@@ -452,3 +452,13 @@ body:has(.sync-web) { background: var(--background); }
   .sync-device { grid-template-columns: 20px minmax(0, 1fr); }
   .sync-device > button, .sync-device > .sync-meta { grid-column: 2; justify-self: start; }
 }
+
+.sync-line { margin: 0; font-size: .8rem; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.sync-addon .sync-line + .sync-line { margin-top: 1px; }
+@media (max-width: 600px) {
+  /* The fixed save bar already confirms a save on narrow screens. */
+  .sync-banner.sync-saved, .sync-feedback:has(> .sync-saved:only-child) { display: none; }
+  .sync-web .home-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); width: 100%; gap: .5rem; }
+  .sync-web .home-toolbar > :last-child:not(:nth-child(2n)) { grid-column: 1 / -1; }
+  .sync-web .home-toolbar > button { width: 100%; }
+}

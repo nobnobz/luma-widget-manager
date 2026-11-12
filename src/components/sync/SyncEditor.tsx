@@ -537,7 +537,7 @@ export function SyncEditor() {
   const draftLabel = stale ? 'Draft needs review' : backup === 'secured' ? 'Draft secured on this browser' : backup === 'unavailable' ? 'Draft only in this tab' : 'Securing draft…';
   const expiryLabel = dirty ? 'Session ends in less than 5 minutes. Save to Luma Sync before it ends.' : 'Session ends in less than 5 minutes.';
   const feedback = <>
-    {status && <p className="sync-banner" role="status">{status}</p>}
+    {status && <p className={`sync-banner${status.startsWith('Saved to Luma Sync.') ? ' sync-saved' : ''}`} role="status">{status}</p>}
     {error && <p className="sync-banner sync-error" role="alert">{error}</p>}
   </>;
   return <div className="sync-web">
@@ -681,7 +681,7 @@ export function SyncEditor() {
       </fieldset></SyncCatalogProvider>
       {(ending || dirty || status.startsWith('Saved to Luma Sync.')) && <div className="sync-mobile-save">
         {ending && <p role="status" className="sync-expiry sync-expiry-mobile"><Clock aria-hidden="true" />{expiryLabel}</p>}
-        {(dirty || status.startsWith('Saved to Luma Sync.')) && <span>{dirty ? draftLabel : 'Saved to Luma Sync'}</span>}
+        {(dirty || status.startsWith('Saved to Luma Sync.')) && <span role={dirty ? undefined : 'status'}>{dirty ? draftLabel : 'Saved to Luma Sync'}</span>}
         {dirty ? <Button disabled={disabled} onClick={() => save()}><Save />{busy === 'save' ? 'Saving…' : 'Save to Luma Sync'}</Button>
           : status.startsWith('Saved to Luma Sync.') && <Button variant="outline" onClick={() => setStatus('')}>Dismiss</Button>}
       </div>}
