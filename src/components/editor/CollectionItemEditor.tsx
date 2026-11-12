@@ -25,7 +25,9 @@ import { cn } from '@/lib/utils';
 import { useMemo, useRef, useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LumaFolderPageEditor } from './LumaFolderPageEditor';
+import { ArtworkPreview } from './ArtworkPreview';
 import { DataSourceEditor } from './DataSourceEditor';
+import { SyncCatalogPicker } from '@/components/sync/SyncCatalogs';
 import { CatalogCombobox } from './CatalogCombobox';
 import { MANIFEST_PLACEHOLDER, resolveFusionCatalogType } from '@/lib/config-utils';
 import { countInvalidCatalogsInItem } from '@/lib/catalog-validation';
@@ -141,7 +143,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
   isExpanded: boolean,
   onToggleExpand: () => void
 }) {
-  const { manifestCatalogs, isLuma } = useConfig();
+  const { manifestCatalogs, isLuma, isSyncEditor } = useConfig();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [showNativeTraktDeleteConfirm, setShowNativeTraktDeleteConfirm] = useState(false);
@@ -381,7 +383,14 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/42 flex items-center h-8">
           {isLuma ? 'Add-on catalogs' : 'Catalogs'}
         </div>
-        <CatalogCombobox
+        {isSyncEditor ? canAddAnotherDataSource && <SyncCatalogPicker label="Add catalog" onSelect={catalog => {
+          const source: AIOMetadataDataSource = {
+            sourceType: 'aiometadata', kind: 'addonCatalog',
+            lumaSource: { id: crypto.randomUUID(), provider: 'addon', title: catalog.title || catalog.catalogID },
+            payload: { addonId: catalog.addonID, catalogId: catalog.catalogID, catalogType: catalog.mediaType },
+          };
+          onUpdate({ dataSources: [...item.dataSources, source] });
+        }} /> : <CatalogCombobox
           options={manifestCatalogs}
           value=""
           disabledValues={selectedCatalogIds}
@@ -396,9 +405,9 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
               <Plus className="size-3.5 mr-1.5 transition-colors group-hover:text-primary" /> Add Catalog
             </Button>
           }
-        />
+        />}
       </div>
-      {isLuma && <p className="text-[11px] leading-relaxed text-muted-foreground">Add-on catalogs can be selected here. For all providers, filters and folder layout, open the hub page below.</p>}
+      {isLuma && !isSyncEditor && <p className="text-[11px] leading-relaxed text-muted-foreground">Add-on catalogs can be selected here. For all providers, filters and folder layout, open the hub page below.</p>}
       <div className="space-y-1.5">
         <DndContext
           sensors={dataSourceSensors}
@@ -784,16 +793,7 @@ export const CollectionItemEditor = memo(function CollectionItemEditor({
                                     "aspect-square w-44 max-sm:w-40"
                               )}>
 
-                              {item.backgroundImageURL ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={item.backgroundImageURL}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <ImageIcon className="size-6 text-muted-foreground/10" />
-                              )}
+                              <ArtworkPreview src={item.backgroundImageURL} onDemand={isSyncEditor} className="size-full absolute inset-0" />
                             </motion.div>
                           </motion.div>
 

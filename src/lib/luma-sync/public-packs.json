@@ -1,0 +1,9 @@
+{
+  "template": "https://raw.githubusercontent.com/nobnobz/Omni-Template-Bot-Bid-Raiser/main/ume-omni-template-v3.1.1.json",
+  "covers": "https://raw.githubusercontent.com/nobnobz/Omni-Template-Bot-Bid-Raiser/main/Other/fusion-animated-covers.json",
+  "formatter": {
+    "Classic": "https://raw.githubusercontent.com/nobnobz/Omni-Template-Bot-Bid-Raiser/main/Other/fusion-tags-ume.json",
+    "Colored": "https://raw.githubusercontent.com/nobnobz/Omni-Template-Bot-Bid-Raiser/main/Other/fusion-tags-ume-colored.json",
+    "Minimalistic": "https://raw.githubusercontent.com/nobnobz/Omni-Template-Bot-Bid-Raiser/main/Other/fusion-tags-ume-minimalistic.json"
+  }
+}

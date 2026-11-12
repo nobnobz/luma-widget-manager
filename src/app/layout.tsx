@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ConfigProvider } from "@/context/ConfigContext";
+import { AppConfigProvider } from "@/context/ConfigContext";
 import { ThemeChromeSync } from "@/components/theme-chrome-sync";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
@@ -65,7 +65,7 @@ export default function RootLayout({
           <ThemeChromeSync />
           
           {/* Global Background Stack */}
-          <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden isolate">
+          <div className="editor-ambient fixed inset-0 z-0 pointer-events-none overflow-hidden isolate">
             <div className="absolute inset-0 bg-background" />
             
             {/* Grid pattern */}
@@ -93,9 +93,7 @@ export default function RootLayout({
           </div>
 
           <div className="relative z-10 flex flex-col min-h-screen">
-            <ConfigProvider>
-              {children}
-            </ConfigProvider>
+            <AppConfigProvider>{children}</AppConfigProvider>
           </div>
         </ThemeProvider>
       </body>

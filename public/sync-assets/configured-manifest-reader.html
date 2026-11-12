@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Add-on manifest reader</title>
+<script>
+  'use strict';
+  const origin = new URL(location.href).origin;
+  const clean = (value, max) => typeof value === 'string' && value.length <= max && !/[\x00-\x1f\x7f-\x9f]/.test(value) ? value : '';
+  addEventListener('message', async event => {
+    if (window === parent || event.source !== parent || event.origin !== origin || event.ports.length !== 1) return;
+    const port = event.ports[0];
+    const controller = new AbortController();
+    port.onmessage = () => controller.abort();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const raw = event.data?.url;
+      if (typeof raw !== 'string' || raw.length > 4096 || /[^a-z\d._~:/?@!$&'()*+,;=%-]|%(?![a-f\d]{2})/i.test(raw)) throw Error();
+      const url = new URL(raw);
+      const host = url.hostname;
+      if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash ||
+          host === new URL(origin).hostname || !url.pathname.endsWith('/manifest.json') ||
+          !host.includes('.') || !/^[a-z]/.test(host.split('.').at(-1) ?? '') || /\.(?:local|localhost|internal|lan|home\.arpa|test|invalid|example|onion)$/.test(host) ||
+          host.split('.').some(label => !/^[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?$/.test(label))) throw Error();
+      const response = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'no-store',
+        referrerPolicy: 'no-referrer', redirect: 'error', signal: controller.signal });
+      if (!response.ok || !response.body || !/^application\/(?:[\w.-]+\+)?json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')) throw Error();
+      const reader = response.body.getReader();
+      let text = '', size = 0;
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          size += value.length;
+          if (size > 1_000_000) throw Error();
+          text += decoder.decode(value, { stream: true });
+        }
+      } finally { await reader.cancel().catch(() => {}); }
+      const manifest = JSON.parse(text + decoder.decode());
+      const id = clean(manifest?.id, 160);
+      if (!/^[\w.-]+$/.test(id)) throw Error();
+      const catalogs = [], seen = new Set();
+      for (const item of Array.isArray(manifest.catalogs) ? manifest.catalogs : []) {
+        if (Array.isArray(item?.extraRequired) && item.extraRequired.length ||
+            Array.isArray(item?.extra) && item.extra.some(extra => extra?.isRequired === true)) continue;
+        const id = clean(item?.id, 1024), type = clean(item?.type, 32), key = JSON.stringify([type, id]);
+        if (!id || !/^[a-z0-9_-]+$/.test(type) || seen.has(key)) continue;
+        seen.add(key);
+        catalogs.push({ id, type, name: clean(item.name, 256) });
+        if (catalogs.length === 500) break;
+      }
+      port.postMessage({ id, name: clean(manifest.name, 128), catalogs });
+    } catch { port.postMessage(null); }
+    finally { clearTimeout(timer); port.close(); }
+  });
+</script>

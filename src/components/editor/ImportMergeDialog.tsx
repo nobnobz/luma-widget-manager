@@ -1,5 +1,6 @@
 "use client";
 
+import { ArtworkPreview } from './ArtworkPreview';
 import { useState, useRef, DragEvent, ChangeEvent, useMemo, useEffect, useCallback } from 'react';
 import { normalizeLumaImport } from '@/lib/luma-editor-adapter';
 import { rowTypeLabel } from '@/lib/editor-labels';
@@ -56,6 +57,16 @@ interface ImportMergeDialogProps {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
+
+function ImageThumb({ src, alt, layout, className }: { src: string; alt: string; layout?: string; className?: string }) {
+  const [ratio, setRatio] = useState<number | null>(null);
+  const shape = layout?.toLowerCase();
+  const poster = shape ? shape === 'poster' : ratio !== null && ratio < 0.75;
+  const wide = shape ? shape === 'wide' : ratio !== null && ratio > 1.4;
+  return <ArtworkPreview src={src} alt={alt} onRatio={setRatio} className={cn(
+    'rounded-xl border border-border/40', poster ? 'h-32 w-24 max-sm:h-44 max-sm:w-30'
+      : wide ? 'h-20 w-40 max-sm:h-28 max-sm:w-56' : 'size-24 max-sm:size-32', className)} />;
+}
 
 export function ImportMergeDialog({ open, onOpenChange, initialJson, initialFileName }: ImportMergeDialogProps) {
   const isMobile = useMobile();
@@ -592,39 +603,6 @@ export function ImportMergeDialog({ open, onOpenChange, initialJson, initialFile
         {!hideIcon && config.icon}
         {children || label || config.label}
       </div>
-    );
-  };
-
-  // ─── ImageThumb ───────────────────────────────────────────────────────────────
-
-  const ImageThumb = ({ src, alt, layout, className }: { src: string; alt: string; layout?: 'Wide' | 'Poster' | 'Square' | 'wide' | 'poster' | 'square', className?: string }) => {
-    const [ratio, setRatio] = useState<number | null>(null);
-    
-    // Prioritize explicit layout prop if provided, otherwise auto-detect
-    const normalizedLayout = layout?.toLowerCase() as 'wide' | 'poster' | 'square' | undefined;
-    
-    // portrait < 0.75, square 0.75–1.4, landscape > 1.4
-    const isPoster = normalizedLayout ? normalizedLayout === 'poster' : ratio !== null && ratio < 0.75;
-    const isWide   = normalizedLayout ? normalizedLayout === 'wide' : ratio !== null && ratio > 1.4;
-    
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt={alt}
-        className={cn(
-          "rounded-xl object-cover border border-border/40  bg-zinc-50 transition-all dark:bg-muted/10 dark:border-border/20",
-          isPoster ? "h-32 w-24 max-sm:h-44 max-sm:w-30"   // portrait
-          : isWide  ? "h-20 w-40 max-sm:h-28 max-sm:w-56"  // landscape
-          :            "size-24 max-sm:size-32",   // square
-          className
-        )}
-        onLoad={(e) => {
-          const img = e.target as HTMLImageElement;
-          setRatio(img.naturalWidth / img.naturalHeight);
-        }}
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-      />
     );
   };
 

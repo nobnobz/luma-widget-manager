@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   output: 'export',
   trailingSlash: true,
   basePath,
+  ...(process.platform === 'darwin' && { experimental: { cpus: 2 } }),
   images: {
     unoptimized: true,
   },

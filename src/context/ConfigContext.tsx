@@ -51,6 +51,7 @@ interface MergeResult {
 
 interface ConfigContextType {
   isLuma: boolean;
+  isSyncEditor: boolean;
   widgets: Widget[];
   trash: TrashWidgetEntry[];
   itemTrash: TrashCollectionItemEntry[];
@@ -95,6 +96,12 @@ interface ConfigContextType {
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
+export function AppConfigProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const sync = pathname?.replace(/\/$/, '') === '/sync';
+  return <ConfigProvider key={sync ? 'sync' : 'local'} persist={!sync}>{children}</ConfigProvider>;
+}
+
 function buildStoredState(state: AppState) {
   return {
     widgets: state.widgets,
@@ -107,7 +114,7 @@ function buildStoredState(state: AppState) {
   };
 }
 
-export function ConfigProvider({ children }: { children: React.ReactNode }) {
+export function ConfigProvider({ children, persist = true }: { children: React.ReactNode; persist?: boolean }) {
   const pathname = usePathname();
   const isLuma = !pathname?.includes('/fusion');
   const [widgets, setWidgets] = useState<Widget[]>([]);
@@ -125,6 +132,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const lastManifestDetectionSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!persist) return;
     let saved = localStorage.getItem('fusion-widgets-config');
     const previousLuma = localStorage.getItem('luma-widget-manager.document.v1');
     try {
@@ -165,9 +173,10 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
 
     setHasHydrated(true);
-  }, []);
+  }, [persist]);
 
   useEffect(() => {
+    if (!persist) return;
     const timer = setTimeout(() => {
       localStorage.setItem(
         'fusion-widgets-config',
@@ -186,15 +195,15 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [widgets, trash, itemTrash, manifestUrl, replacePlaceholder]);
+  }, [persist, widgets, trash, itemTrash, manifestUrl, replacePlaceholder]);
 
   useEffect(() => {
-    localStorage.setItem('fusion-widget-manifest-catalogs', JSON.stringify(manifestCatalogs));
-  }, [manifestCatalogs]);
+    if (persist) localStorage.setItem('fusion-widget-manifest-catalogs', JSON.stringify(manifestCatalogs));
+  }, [persist, manifestCatalogs]);
 
   useEffect(() => {
-    localStorage.setItem('fusion-widget-manifest-content', manifestContent);
-  }, [manifestContent]);
+    if (persist) localStorage.setItem('fusion-widget-manifest-content', manifestContent);
+  }, [persist, manifestContent]);
 
   const normalizeIncomingConfig = useCallback(
     (
@@ -220,7 +229,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   );
 
   const applyImportedManifestState = useCallback((config: unknown, importedWidgets: Widget[]) => {
-    const importedManifest = extractImportedManifestState(config);
+    const importedManifest = extractImportedManifestState(Array.isArray(config) ? normalizeLumaImport(config) : config);
 
     if (importedManifest.hasExplicitManifest) {
       autoRefreshedManifestUrlRef.current =
@@ -256,7 +265,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
 
   const importConfig = useCallback(
     (config: unknown) => {
-      const importedManifest = extractImportedManifestState(config);
+      const importedManifest = extractImportedManifestState(Array.isArray(config) ? normalizeLumaImport(config) : config);
       const normalized =
         importedManifest.hasExplicitManifest
           ? normalizeIncomingConfig(config, {
@@ -785,6 +794,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     <ConfigContext.Provider
       value={{
         isLuma,
+        isSyncEditor: !persist,
         widgets,
         trash,
         itemTrash,

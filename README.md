@@ -41,6 +41,25 @@ Provider add-ons must be installed in Luma before catalogs can load. A connected
 
 Previous native-editor drafts migrate into the shared widget editor. Unknown native fields remain attached to their collection/folder/source. The previous native draft is retained locally as a recovery copy until an intentional restart. The `/fusion` compatibility route retains the legacy output workflow; native-only hubs cannot be silently downgraded to legacy exports.
 
+## Edit a synced setup with a passkey
+
+The optional **Your setup** page runs on the same HTTPS origin as Luma Sync. Sign in with your Luma passkey or create an account when the server allows registration. Select a profile to edit Home, collections, add-ons, tracking, formatter tags and shared app preferences. Use the template library to start with UME or add animated covers.
+
+Preview Home or open a collection preview to browse its draft folders, nested rows and artwork. **Save to Luma Sync** publishes the draft; devices pick it up on their next sync. Existing native accounts must have synced using the current transport. Name the first profile during web registration, or open **Profiles** to edit a profile or create another one. A new profile can start empty or copy the public add-ons from an existing profile into its own list. See the [portal field and release checklist](docs/luma-portal.md).
+
+The manager supports public add-ons and configured HTTPS links such as AIOMetadata and AIOStreams. Configured links sync encrypted from compatible Luma builds and are fetched directly from the provider by the browser. Local add-ons and Jellyfin credentials stay in Luma. Tracking can connect, switch and disconnect personal Trakt, Simkl and MDBList accounts on a compatible Sync server; OAuth tokens remain on that server. Existing direct app sign-ins stay local. A Home widget still needs a matching catalog on the receiving device. Profiles that inherit add-ons display the primary profile’s list; edit it on the primary profile. The editor holds the decrypted setup and session keys in memory. The browser keeps an encrypted local draft that can be restored after signing in again; only an explicit save publishes it. The standalone GitHub Pages editor continues to use file import/export.
+
+Operators can build the same-origin static package and its Caddy include with `./scripts/build-sync-editor.sh`. Mount the resulting `build/sync-editor` directory using the Luma Sync `compose.editor.yaml` override, or serve the generated routes and headers at the existing Sync origin. The package is for a trusted host, not an external iframe or a redirect from GitHub Pages. The LZFSE decoder uses [Apple's pinned implementation](https://github.com/lzfse/lzfse/tree/e634ca58b4821d9f3d560cdc6df5dec02ffc93fd); the [license](public/sync-assets/LZFSE-LICENSE.txt) and [rebuild script](scripts/lzfse/rebuild.sh) are retained.
+
+For a local HTTPS smoke test, install the Luma Sync service’s locked dependencies, build the package, and set `LUMA_SOURCE` and `LUMA_CADDY` to the local Luma checkout and Caddy executable. Run the fixture with Chrome installed:
+
+```sh
+./scripts/with-external-cache.sh node --no-warnings --experimental-strip-types \
+  --loader ./test/node-ts-loader.mjs test/scripts/sync-editor-smoke.mjs
+```
+
+The fixture uses signed WebAuthn assertions with synthetic browser PRF material. It does not exercise a physical authenticator or a production account.
+
 ## Development and storage
 
 Node 22+ and npm. On this Mac **always** use the wrapper. Dependencies, Next build data, npm cache and temporary files use one persistent external root: `/Volumes/Jarvis SSD/DeveloperData/Caches/luma-widget-manager`. The wrapper fails if the SSD is missing. Evidence belongs in `build/evidence/`.

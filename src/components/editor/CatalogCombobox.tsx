@@ -7,6 +7,7 @@ import * as Popover from '@radix-ui/react-popover';
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -17,7 +18,7 @@ import { findCatalog } from '@/lib/config-utils';
 import { useMobile } from '@/hooks/use-mobile';
 
 interface CatalogComboboxProps {
-  options: AIOMetadataCatalog[];
+  options: (AIOMetadataCatalog & { selectionKey?: string; sourceName?: string })[];
   value: string;
   onChange: (value: string) => void;
   disabledValues?: string[];
@@ -37,6 +38,7 @@ export function CatalogCombobox({
 }: CatalogComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [limit, setLimit] = useState(48);
   const isMobile = useMobile();
   const [mounted, setMounted] = useState(false);
 
@@ -48,17 +50,16 @@ export function CatalogCombobox({
   const disabledValueSet = useMemo(() => new Set(disabledValues), [disabledValues]);
 
   const selectedOption = useMemo(() => {
-    return findCatalog(options, value);
+    return value ? options.find(option => option.selectionKey === value) ?? findCatalog(options, value) : undefined;
   }, [options, value]);
 
   const filteredOptions = useMemo(() => {
     if (!search) return options;
-    const lowerSearch = search.toLowerCase();
-    return options.filter(o => 
-      o.name.toLowerCase().includes(lowerSearch) || 
-      o.id.toLowerCase().includes(lowerSearch) ||
-      o.type.toLowerCase().includes(lowerSearch)
-    );
+    const tokens = search.trim().toLowerCase().split(/\s+/);
+    return options.filter(option => {
+      const text = [option.name, option.id, option.type, option.sourceName].join(' ').toLowerCase();
+      return tokens.every(token => text.includes(token));
+    });
   }, [options, search]);
 
   const isInvalid = !selectedOption && value !== '';
@@ -95,15 +96,17 @@ export function CatalogCombobox({
         "px-6 py-4 border-b border-border/5 flex items-center gap-3 bg-transparent shrink-0",
         isMobile ? "pt-2 pb-6" : ""
       )}>
-        <div className="flex-1 flex items-center gap-2.5 px-3.5 h-10 rounded-2xl bg-zinc-200/20 dark:bg-white/5 border border-zinc-200/50 dark:border-white/5 focus-within:border-primary/30 transition-all">
+        <div data-slot="catalog-search-control" className="flex-1 flex items-center gap-2.5 px-3.5 h-10 rounded-2xl bg-zinc-200/20 dark:bg-white/5 border border-zinc-200/50 dark:border-white/5 focus-within:border-primary/30 transition-all">
           <Search className="size-4 text-muted-foreground/35" />
           <input
             autoFocus={mounted && !isMobile}
             type="text"
+            data-slot="catalog-search-input"
             placeholder="Search catalogs..."
+            aria-label="Search catalogs"
             className="flex-1 bg-transparent border-none outline-none text-base sm:text-[11px] h-full placeholder:text-muted-foreground/30 focus:ring-0 font-bold"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setLimit(48); }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') setIsOpen(false);
               e.stopPropagation();
@@ -115,7 +118,7 @@ export function CatalogCombobox({
               aria-label="Clear catalog search"
               onClick={(e) => {
                 e.stopPropagation();
-                setSearch('');
+                setSearch(''); setLimit(48);
               }} 
               className="p-1 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-md transition-colors shrink-0"
             >
@@ -134,8 +137,8 @@ export function CatalogCombobox({
       >
         {filteredOptions.length > 0 ? (
           <div className={cn("grid grid-cols-1", isMobile ? "gap-2" : "gap-1")}>
-            {filteredOptions.map((option) => {
-              const combinedId = `${option.type}::${option.id}`;
+            {filteredOptions.slice(0, limit).map((option) => {
+              const combinedId = option.selectionKey ?? `${option.type}::${option.id}`;
               const isSelected = combinedId === value;
               const isDisabled = !isSelected && disabledValueSet.has(combinedId);
               
@@ -144,6 +147,8 @@ export function CatalogCombobox({
                   key={combinedId}
                   type="button"
                   disabled={isDisabled}
+                  data-slot="catalog-option"
+                  data-selected={isSelected}
                   onClick={() => {
                     if (isDisabled) return;
                     onChange(combinedId);
@@ -169,13 +174,16 @@ export function CatalogCombobox({
                       "text-[11px] sm:text-[10px] uppercase tracking-[0.16em] font-bold opacity-55",
                       isSelected ? "text-primary-foreground/80" : "text-muted-foreground/60"
                     )}>
-                      {option.type} <span className="mx-1 opacity-25">•</span> {option.id}
+                      {option.type} <span className="mx-1 opacity-25">•</span> {option.sourceName || option.id}
                     </span>
                   </div>
                   {isSelected && <Check className="size-4 shrink-0 stroke-[3px]" />}
                 </button>
               );
             })}
+            {filteredOptions.length > limit && <button type="button" className="px-4 py-3 text-sm text-primary" onClick={() => setLimit(n => n + 48)}>
+              Show more catalogs
+            </button>}
           </div>
         ) : (
           <div className="p-16 text-center flex flex-col items-center justify-center gap-4 opacity-30 grayscale invert dark:invert-0">
@@ -187,15 +195,21 @@ export function CatalogCombobox({
     </div>
   );
 
+  function changeOpen(open: boolean) {
+    setIsOpen(open);
+    if (open) { setSearch(''); setLimit(48); }
+  }
+
   if (isMobile) {
     return (
-      <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <Drawer open={isOpen} onOpenChange={changeOpen}>
         <DrawerTrigger asChild>
           {renderTrigger()}
         </DrawerTrigger>
-        <DrawerContent className="max-h-[94dvh] bg-white dark:bg-zinc-950 border-zinc-200/80 dark:border-white/10 rounded-t-[2.5rem] flex flex-col">
+        <DrawerContent data-slot="catalog-surface" className="max-h-[94dvh] bg-white dark:bg-zinc-950 border-zinc-200/80 dark:border-white/10 rounded-t-[2.5rem] flex flex-col">
           <DrawerHeader className="relative border-b border-border/5 pb-5 pt-2 shrink-0">
-            <DrawerTitle className="text-[17px] font-black tracking-tight text-center text-foreground/90">Select Catalog</DrawerTitle>
+            <DrawerTitle className="text-[17px] font-black tracking-tight text-center text-foreground/90">Select catalog</DrawerTitle>
+            <DrawerDescription className="sr-only">Search by catalog name, type, or add-on.</DrawerDescription>
           </DrawerHeader>
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             {renderContentItems()}
@@ -211,6 +225,7 @@ export function CatalogCombobox({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98, y: -4 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
+      data-slot="catalog-surface"
       className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 flex flex-col h-full overflow-hidden rounded-3xl w-full max-h-[400px] shadow-2xl"
       onClick={(e) => e.stopPropagation()}
     >
@@ -221,17 +236,15 @@ export function CatalogCombobox({
   return (
     <Popover.Root
       open={isOpen}
-      onOpenChange={(open) => {
-        setIsOpen(open);
-        if (open) setSearch('');
-      }}
+      onOpenChange={changeOpen}
     >
       <Popover.Trigger asChild>
         {renderTrigger()}
       </Popover.Trigger>
 
       <Popover.Portal>
-        <Popover.Content 
+        <Popover.Content
+          aria-label="Select catalog"
           sideOffset={8} 
           align="start"
           collisionPadding={20}

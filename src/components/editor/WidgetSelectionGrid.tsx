@@ -330,6 +330,7 @@ function WidgetSelectionGridComponent({
   const [animatedCoverWidgetBlueprints, setAnimatedCoverWidgetBlueprints] = useState<Record<string, AnimatedCoverWidgetBlueprint>>({});
   const [animatedPreviewIndex, setAnimatedPreviewIndex] = useState(0);
   const [isAnimatedPreviewPlaying, setIsAnimatedPreviewPlaying] = useState(false);
+  const [failedAnimatedPreview, setFailedAnimatedPreview] = useState<string | null>(null);
   const [activeAnimatedCoverPackSlug, setActiveAnimatedCoverPackSlug] = useState<string | null>(null);
   const [isAnimatedInstallDialogOpen, setIsAnimatedInstallDialogOpen] = useState(false);
   const [animatedInstallStep, setAnimatedInstallStep] = useState<'cover' | 'widget-prompt' | 'widget'>('cover');
@@ -3213,7 +3214,10 @@ function WidgetSelectionGridComponent({
                           onPlay={() => setIsAnimatedPreviewPlaying(true)}
                           onPause={() => setIsAnimatedPreviewPlaying(false)}
                           onEnded={() => setIsAnimatedPreviewPlaying(false)}
+                          onError={() => { setFailedAnimatedPreview(previewCover.videoURL); setIsAnimatedPreviewPlaying(false); }}
+                          onLoadedData={() => setFailedAnimatedPreview(current => current === previewCover.videoURL ? null : current)}
                         />
+                        {failedAnimatedPreview === previewCover.videoURL && <p role="status" className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-black/80 px-3 py-2 text-center text-xs text-white">Video preview unavailable.</p>}
                         <button
                           type="button"
                           aria-label="Previous cover"

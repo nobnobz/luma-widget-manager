@@ -1,3 +1,4 @@
+import { MAX_HOME_FILE_BYTES, MAX_HOME_FILE_ROWS } from './luma-home-limits';
 import type { CollectionItem, FusionWidgetsConfig, Widget, WidgetDataSource } from './types/widget';
 import { exportDocument, importDocument, newID, type CatalogSource, type Folder, type Hub, type LumaDocument } from './luma-document';
 
@@ -149,7 +150,7 @@ export function buildLumaExportParts(widgets: Widget[], manifestUrl = ''): LumaE
   if (widgets.length) part('home', 'Complete Home', 'Luma-Home.json', widgets.length, () => exportLumaHome(widgets, manifestUrl));
   if (folders.length) part('folders', 'Folder rows', 'luma-collections.json', folders.length, () => exportEditorForLuma(folders, manifestUrl));
   if (catalogs.length) part('catalogs', 'Catalog rows', 'luma-catalog-rows.json', catalogs.length, () => {
-    if (catalogs.length > 128) throw new Error('Luma accepts at most 128 catalog rows per Fusion import.');
+    if (catalogs.length > MAX_HOME_FILE_ROWS) throw new Error(`Luma accepts at most ${MAX_HOME_FILE_ROWS} catalog rows per Fusion import.`);
     const ids = new Set<string>();
     const requiredAddons = new Set<string>();
     const catalogRoutes = new Set<string>();
@@ -181,7 +182,7 @@ export function buildLumaExportParts(widgets: Widget[], manifestUrl = ''): LumaE
     });
     if (requiredAddons.size > 32) throw new Error('Luma accepts at most 32 add-on dependencies per import.');
     const text = JSON.stringify({ exportType: 'fusionWidgets', exportVersion: 1, requiredAddons: [...requiredAddons], widgets: rows }, null, 2);
-    if (new TextEncoder().encode(text).length > 4 * 1024 * 1024) throw new Error('The file exceeds 4 MB.');
+    if (new TextEncoder().encode(text).length > MAX_HOME_FILE_BYTES) throw new Error('The file exceeds 4 MB.');
     return text;
   });
   return parts;
@@ -232,7 +233,7 @@ export function assertLegacyExportCompatible(widgets: Widget[]): void {
 
 /** Mirrors LumaCore HomeLayoutExport's guided, lossless Home contract. */
 export function exportLumaHome(widgets: Widget[], manifestUrl = ''): string {
-  if (!widgets.length || widgets.length > 128) throw new Error('Select 1–128 Home rows for a Luma import.');
+  if (!widgets.length || widgets.length > MAX_HOME_FILE_ROWS) throw new Error(`Select 1–${MAX_HOME_FILE_ROWS} Home rows for a Luma import.`);
   const dependencies = new Set<string>();
   let folderCount = 0, sourceCount = 0;
   const ids = new Set<string>();
@@ -279,7 +280,7 @@ export function exportLumaHome(widgets: Widget[], manifestUrl = ''): string {
   });
   if (folderCount > 2000 || sourceCount > 5000 || dependencies.size > 32) throw new Error('Luma import limits exceeded (2,000 folders, 5,000 sources or 32 add-ons).');
   const text = JSON.stringify({ exportType: 'fusionWidgets', exportVersion: 1, requiredAddons: [...dependencies].sort(), widgets: rows }, null, 2);
-  if (new TextEncoder().encode(text).length > 4 * 1024 * 1024) throw new Error('The file exceeds 4 MB.');
+  if (new TextEncoder().encode(text).length > MAX_HOME_FILE_BYTES) throw new Error('The file exceeds 4 MB.');
   return text;
 }
 
