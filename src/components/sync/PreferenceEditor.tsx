@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ChevronRight, RotateCcw, Search, X } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { SyncAddon } from '@/lib/luma-sync/addons';
-import { isSkipField, preferenceGroups, skipSchemaField, trackingGroups, validPreferenceValue, type PreferenceField, type PreferenceSettings, type Scalar } from '@/lib/luma-sync/preferences';
+import { isSkipField, newerFields, preferenceGroups, skipSchemaField, trackingGroups, validPreferenceValue, type PreferenceField, type PreferenceSettings, type Scalar } from '@/lib/luma-sync/preferences';
 import { LibraryLayoutEditor } from './LibraryLayoutEditor';
 import { GenreControl, PersonSectionsEditor, SearchAddonControl } from './MetadataControls';
 
@@ -52,7 +52,7 @@ export function PreferenceControl({ field, value, unavailable, onChange }: {
         if (option) onChange(option[0]);
         else if (event.target.value === '__default__') onChange(null);
       }}>
-        {field.fallback === null && <option value="__default__">{isSkipField(field.id) ? 'Use app setting' : 'Automatic'}</option>}
+        {field.fallback === null && <option value="__default__">{isSkipField(field.id) ? 'Use app setting' : field.id === 'playback.seekStep' ? 'Device default' : 'Automatic'}</option>}
         {field.kind === 'locale' && typeof effective === 'string' && !field.options.some(([item]) => item === effective) &&
           <option value={effective}>{effective}</option>}
         {field.options.map(([option, label]) => <option key={String(option)} value={String(option)}>{label}</option>)}
@@ -76,6 +76,7 @@ export function PreferenceControl({ field, value, unavailable, onChange }: {
     </label>}
     {value != null && <Button variant="ghost" type="button" size="icon" aria-label={`Reset ${field.label}`} title="Restore app default"
       onClick={() => { setNumberDraft(undefined); setInvalid(false); onChange(null); }}><RotateCcw className="size-4" /></Button>}
+    {newerFields.has(field.id) && <p className="sync-setting-hint">Needs a Luma build that reads this setting.</p>}
     {invalid && field.kind === 'number' && <p className="sync-setting-hint text-destructive" role="status">Enter a number from {field.min} to {field.max}.</p>}
   </div>;
 }

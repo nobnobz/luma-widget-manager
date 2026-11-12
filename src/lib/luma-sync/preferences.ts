@@ -65,10 +65,17 @@ export const preferenceGroups = [
   { title: 'Appearance', fields: [
     select('language', 'App language', '', languages),
     select('appearance.background', 'App background', 'Charcoal', options(['Charcoal', 'Black', 'Midnight', 'Forest', 'Plum', 'Slate', 'Wine', 'Ocean', 'Indigo', 'Crimson', 'Rust', 'Teal'])),
+    select('appearance.cardSize', 'Poster card size', 'standard', [['compact', 'Compact'], ['standard', 'Standard'], ['large', 'Large']]),
     toggle('appearance.oled', 'Use true black', false), toggle('appearance.browseBlur', 'Blur browsing backgrounds'),
     ...['Home', 'Catalogs', 'Search', 'Details', 'People'].map(label => toggle(`appearance.blur.${label.toLowerCase()}`, `Blur artwork in ${label}`)),
   ] },
+  { title: 'Home', fields: [
+    toggle('home.heroEnabled', 'Show the featured banner on Home'), toggle('home.heroBackdropFullscreen', 'Fullscreen banner backdrop'),
+    toggle('home.posterTitles', 'Show titles under posters'), toggle('home.posterYears', 'Show years under posters'),
+    select('home.rowCardOrientation', 'Row card orientation', 'Portrait', [['Portrait', 'Portrait'], ['Landscape', 'Landscape']]),
+  ] },
   { title: 'Playback', fields: [
+    select('playback.seekStep', 'Skip forward and back', null, [5, 10, 15, 30, 60].map(n => [n, `${n} seconds`] as const)),
     toggle('playback.autoNext', 'Play the next episode automatically'), numeric('playback.nextCountdown', 'Next episode countdown', 10, 1, 120, 1, 'seconds'),
     toggle('playback.postPlay', 'Show recommendations after playback'), toggle('playback.seekThumbnails', 'Show thumbnails while seeking'),
     toggle('playback.introSkip', 'Look up intro and credits markers'), toggle('playback.cachedOnly', 'Only show cached streams', false),
@@ -126,6 +133,8 @@ export const preferenceGroups = [
     toggle('metadata.hidePersonTitlesWithoutPoster', 'Hide titles without a TMDB poster', false),
   ] },
 ];
+// Fields that need a Luma build which reads them (the portal only writes them when the user changes them).
+export const newerFields = new Set(['appearance.cardSize', 'playback.seekStep', 'home.heroEnabled', 'home.heroBackdropFullscreen', 'home.posterTitles', 'home.posterYears', 'home.rowCardOrientation']);
 const fields = new Map([...trackingGroups, ...preferenceGroups].flatMap(group => group.fields).map(field => [field.id, field]));
 for (const field of formatterPresentationFields) fields.set(field.id, field);
 for (const row of libraryShelves) fields.set(row.field, toggle(row.field, row.label));

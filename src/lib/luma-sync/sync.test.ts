@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { publicManifestURL, readSyncAddons } from './addons';
+import { isPreferenceField, validPreferenceValue } from './preferences';
 import { collectionHomeID, collectionSource, SyncDocuments } from './documents';
 import { readHomeFile, writeVisibleHome } from './home-files';
 import { MAX_HOME_FILE_ROWS, MAX_SYNC_HOME_WIDGETS } from '../luma-home-limits';
@@ -586,4 +587,37 @@ test('profile deletion refuses the primary slot, the last profile, unknown slots
   const owned = new SyncDocuments(loaded([[device, source], [browser, withOwn]]), realm, browser);
   const { snapshot: saved } = owned.profileDeletion('2');
   assert.deepEqual(Object.keys(saved.records[`${prefix}.2.addons`]), ['stamp']);
+});
+
+test('the Home, card size and seek step fields follow the native catalog and an unset seek step stays unset', () => {
+  const valid: [string, unknown][] = [['appearance.cardSize', 'compact'], ['appearance.cardSize', 'standard'], ['appearance.cardSize', 'large'],
+    ['playback.seekStep', 5], ['playback.seekStep', 10], ['playback.seekStep', 15], ['playback.seekStep', 30], ['playback.seekStep', 60],
+    ['home.heroEnabled', false], ['home.heroBackdropFullscreen', true], ['home.posterTitles', false], ['home.posterYears', true],
+    ['home.rowCardOrientation', 'Portrait'], ['home.rowCardOrientation', 'Landscape'], ['playback.seekStep', null], ['home.posterYears', null]];
+  for (const [name, value] of valid) assert.equal(validPreferenceValue(name, value), true, `${name}=${String(value)}`);
+  const invalid: [string, unknown][] = [['appearance.cardSize', 'Standard'], ['appearance.cardSize', 'huge'], ['appearance.cardSize', 1],
+    ['playback.seekStep', 20], ['playback.seekStep', 0], ['playback.seekStep', 90], ['playback.seekStep', '10'], ['playback.seekStep', 10.5],
+    ['home.heroEnabled', 'true'], ['home.posterTitles', 1], ['home.rowCardOrientation', 'portrait'], ['home.rowCardOrientation', 'Square']];
+  for (const [name, value] of invalid) assert.equal(validPreferenceValue(name, value), false, `${name}=${String(value)}`);
+  for (const [name] of valid) assert.equal(isPreferenceField(name), true);
+  const common = `${prefix}.1.commonSettings.v1`;
+  const native = snapshot(device, { [profileKey]: env('__account__', 'profile', profiles, 1),
+    [common]: env('1', 'commonSettings.v1', { fields: { 'home.posterTitles': { revision: 7, deviceID: device, value: false } } }, 2) });
+  const documents = new SyncDocuments(loaded([[device, native]]), realm, browser);
+  const draft = documents.draft('1');
+  assert.equal(draft.preferences?.['home.posterTitles'], false);
+  assert.equal('playback.seekStep' in (draft.preferences ?? {}), false);
+  // Editing something else writes neither the seek step nor the other new fields.
+  const other = documents.publication('1', { ...draft, preferences: { ...draft.preferences, 'appearance.oled': true } })!;
+  const written = (payload(other.records, common) as { fields: Record<string, unknown> }).fields;
+  assert.deepEqual(Object.keys(written), ['appearance.oled']);
+  // Choosing a value writes exactly that number; going back to the device default writes a reset marker, not a number.
+  const chosen = documents.publication('1', { ...draft, preferences: { ...draft.preferences, 'playback.seekStep': 30 } })!;
+  assert.deepEqual((payload(chosen.records, common) as { fields: Record<string, unknown> }).fields, { 'playback.seekStep': { revision: 8, deviceID: browser, value: 30 } });
+  const withChoice = new SyncDocuments(loaded([[device, native], [browser, chosen]]), realm, browser);
+  assert.equal(withChoice.draft('1').preferences?.['playback.seekStep'], 30);
+  const reset = withChoice.publication('1', { ...withChoice.draft('1'), preferences: { ...withChoice.draft('1').preferences, 'playback.seekStep': null } })!;
+  assert.deepEqual((payload(reset.records, common) as { fields: Record<string, unknown> }).fields, { 'playback.seekStep': { revision: 9, deviceID: browser } });
+  const afterReset = new SyncDocuments(loaded([[device, native], [browser, reset]]), realm, browser);
+  assert.equal(afterReset.draft('1').preferences?.['playback.seekStep'], undefined);
 });
