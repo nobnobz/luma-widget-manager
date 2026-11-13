@@ -35,6 +35,8 @@ A change is ready to release when its existing-account and new-account flows pas
 
 Screen size, input and performance differ between devices, so 20 fields (card size, true black, blurs, skip step, banner backdrop, rotation and item count, row orientation, preload, stream badge placement and size, trailer previews, sound and volume) are edited under **Per device**, in tabs for iPhone & iPad (`ios`), Apple TV (`tvos`) and Mac (`macos`). Their register is `<id>@<type>`; each type has its own value. Defaults are the same on every platform (for example skip step 10 s, 5 banner items, no automatic rotation). A device type reads its own register, then the plain `<id>` register older apps wrote, then its default; a reset writes a value-less marker on `<id>@<type>` and wins over the plain register. The portal never writes the plain `<id>` of these fields. Everything else applies to all devices of the profile. `src/lib/luma-sync/swift-contract.test.ts` checks the ids and per-type defaults against `SharedPreferences.swift` (`LUMA_SWIFT_CATALOG`).
 
+The Per device area and its controls are also available in German when the browser uses German. The rest of the portal uses English.
+
 The per-device fields, `home.heroEnabled`, `home.posterTitles/Years` and `playback.streamSort` need a Luma build that reads them; the portal says so next to each. Unchanged fields are never written, so the apps keep their own defaults.
 
 ## Devices

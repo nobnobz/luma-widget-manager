@@ -15,6 +15,7 @@ import { readHomeFile } from '../../src/lib/luma-sync/home-files.ts';
 import { base64, derive, join, json, seal, utf8 } from '../../src/lib/luma-sync/wire.ts';
 import { ConfiguredAddonCipher, configuredID, configuredPrefix } from '../../src/lib/luma-sync/configured-addons.ts';
 import { providerConnectionsSmoke, providerFixture } from './provider-connections-smoke.mjs';
+import { NativeRoot } from '../../src/lib/luma-sync/protected-keys.ts';
 
 assert(process.env.LUMA_SOURCE && process.env.LUMA_CADDY && process.env.TMPDIR,
   'Run via with-external-cache.sh with LUMA_SOURCE and LUMA_CADDY set');
@@ -188,7 +189,7 @@ scenario: try {
   caddy = spawn(process.env.LUMA_CADDY, ['run', '--config', caddyfile], { env: caddyEnv, stdio: 'ignore' });
 
   browser = await chromium.launch({ channel: 'chrome' });
-  page = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 850 } });
+  page = await browser.newPage({ ignoreHTTPSErrors: true, locale: process.env.LUMA_TEST_GERMAN_SCOPE === '1' ? 'de-AT' : 'en-US', viewport: { width: 1100, height: 850 } });
   page.setDefaultTimeout(12_000);
   page.on('response', response => {
     const { origin: target, pathname } = new URL(response.url());
@@ -261,6 +262,61 @@ scenario: try {
   if (testConnections) {
     await providerConnectionsSmoke({ page, native, evidence, fixture: connectionFixture, writeNativePreference,
       expireSession: () => { serviceClockOffset += 3_600_000; }, advanceWindow: () => { serviceClockOffset += 61_000; } });
+    break scenario;
+  }
+  if (process.env.LUMA_TEST_GERMAN_SCOPE === '1') {
+    await page.setViewportSize({ width: 320, height: 740 });
+    const nav = page.getByRole('navigation', { name: 'Setup sections' });
+    await nav.getByRole('button', { name: 'Gerätetyp' }).click();
+    const device = page.getByRole('region', { name: 'Gerätetyp' });
+    assert.equal(await device.getAttribute('lang'), 'de');
+    await device.getByRole('tab', { name: 'Apple TV' }).click();
+    await device.getByText('Wiedergabe', { exact: true }).click();
+    const seek = device.getByRole('combobox', { name: 'Sprungweite vor und zurück' });
+    assert.equal(await seek.inputValue(), '10');
+    await seek.selectOption({ label: '30 Sekunden' });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    assert(await nav.locator('.sync-area span').evaluateAll(
+      labels => labels.every(label => label.scrollWidth <= label.clientWidth && label.clientHeight < 28)));
+    await page.screenshot({ path: path.join(evidence, 'device-preferences-german.png') });
+    await page.getByRole('button', { name: 'Save to Luma Sync', exact: true }).click();
+    await page.locator('.sync-mobile-save').getByText('Saved to Luma Sync', { exact: true }).waitFor();
+    const saved = new SyncDocuments(await native.load(AbortSignal.timeout(15_000)), await native.realm(), randomUUID());
+    assert.equal(saved.draft('1').preferences['playback.seekStep@tvos'], 30);
+    assert.equal(saved.draft('1').preferences['playback.seekStep@ios'], undefined);
+    assert.deepEqual(faults, []);
+    console.log('German device settings fit at 320 pixels and write the unchanged native Apple TV register.');
+    break scenario;
+  }
+  if (process.env.LUMA_TEST_ACCOUNT_ACTIONS === '1') {
+    await profilePicker.selectOption('2');
+    await page.getByRole('button', { name: 'Preferences', exact: true }).click();
+    const panel = page.getByRole('region', { name: 'API keys' });
+    const secret = randomBytes(16).toString('hex');
+    await panel.getByLabel('TMDB key', { exact: true }).fill(secret);
+    const row = panel.getByRole('heading', { name: 'TMDB API key' }).locator('../..');
+    await row.getByRole('button', { name: 'Save key', exact: true }).click();
+    await panel.getByText(/TMDB key saved/).waitFor();
+    const load = async () => new SyncDocuments(await native.load(AbortSignal.timeout(15_000)), await native.realm(), randomUUID());
+    const documents = await load();
+    const material = await new NativeRoot(deviceToken, new Uint8Array(master), spaceID,
+      (route, options) => api(route, options)).existing();
+    assert(typeof material === 'object');
+    const register = documents.protectedRegister('2', 'tmdb');
+    assert(register && !register.value.includes(secret));
+    assert.equal(await documents.protectedKeys('2', material.root).open(register, 'tmdb') === secret, true);
+    material.root.fill(0);
+    assert.equal(documents.protectedRegister('1', 'tmdb'), undefined);
+    await page.getByRole('button', { name: 'Manage profiles' }).click();
+    await page.getByRole('button', { name: 'Edit current profile' }).click();
+    await page.getByRole('dialog', { name: 'Edit profile' }).getByRole('button', { name: 'Delete profile…' }).click();
+    await page.getByRole('dialog', { name: 'Delete Empty profile?' }).getByRole('button', { name: 'Delete profile', exact: true }).click();
+    await page.getByText(/Profile deleted. Other devices/).waitFor();
+    const after = await load();
+    assert.equal(after.profiles.some(profile => profile.id === '2'), false);
+    assert(after.profiles.some(profile => profile.id === '1'));
+    assert.deepEqual(faults, []);
+    console.log('Secondary profile deletion and a sealed TMDB key reached the native-format reader.');
     break scenario;
   }
   const appBackground = page.getByLabel('App background').and(page.locator('select'));

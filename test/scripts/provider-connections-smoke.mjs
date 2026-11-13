@@ -49,6 +49,22 @@ export async function providerConnectionsSmoke({ page, native, evidence, fixture
     assert(connectionID((await read()).managedConnection('1', kind), realm));
   }
   assert.equal(await page.getByRole('button', { name: 'Save to Luma Sync', exact: true }).isDisabled(), true);
+  const activity = page.locator('[aria-labelledby="sync-watch-title"]');
+  await activity.getByRole('button', { name: 'Turn on', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Sync watch activity for this profile?' })
+    .getByRole('button', { name: 'Turn on', exact: true }).click();
+  await activity.getByRole('button', { name: 'Turn off', exact: true }).waitFor();
+  const enabled = await read();
+  const consent = await enabled.watchActivity('1');
+  for (const provider of ['trakt', 'simkl', 'mdblist']) {
+    assert.equal(consent?.accounts[provider]?.binding, enabled.managedConnection('1', provider));
+  }
+  assert.equal(enabled.draft('1').preferences['progress.source'], 'LOCAL');
+  assert.equal(enabled.draft('1').preferences['library.source'], 'LOCAL');
+  await activity.getByRole('button', { name: 'Turn off', exact: true }).click();
+  await activity.getByRole('button', { name: 'Turn on', exact: true }).waitFor();
+  assert.equal(await (await read()).watchActivity('1'), null);
+  console.log('Watch activity consent reached the native-format reader and could be turned off.');
   advanceWindow(); // Keep separate user journeys within the real production quotas.
   const before = (await read()).managedConnection('1', 'trakt');
   const cancel = await connect('Trakt', 'Switch account');

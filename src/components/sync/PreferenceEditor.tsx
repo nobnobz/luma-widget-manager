@@ -6,17 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { SyncAddon } from '@/lib/luma-sync/addons';
 import { isSkipField, newerFields, preferenceGroups, skipSchemaField, trackingGroups, validPreferenceValue, type PreferenceField, type PreferenceSettings, type Scalar } from '@/lib/luma-sync/preferences';
+import { scopeField, scopeText } from '@/lib/luma-sync/scope-language';
 import { LibraryLayoutEditor } from './LibraryLayoutEditor';
 import { GenreControl, PersonSectionsEditor, SearchAddonControl } from './MetadataControls';
 
-export function PreferenceControl({ field, value, inherited, unavailable, defaultHint, onChange }: {
-  field: PreferenceField; value?: Scalar | null; inherited?: Scalar | null; unavailable: boolean; defaultHint?: string; onChange: (value: Scalar | null) => void;
+export function PreferenceControl({ field, value, inherited, unavailable, defaultHint, germanScope = false, onChange }: {
+  field: PreferenceField; value?: Scalar | null; inherited?: Scalar | null; unavailable: boolean; defaultHint?: string; germanScope?: boolean; onChange: (value: Scalar | null) => void;
 }) {
   const [invalid, setInvalid] = useState(false);
   const [numberDraft, setNumberDraft] = useState<string>();
   const effective = value ?? inherited ?? field.fallback;
   if (unavailable) return <div className="sync-setting">
-    <span>{field.label}</span><p className="sync-setting-hint">Edit in Luma.</p>
+    <span>{field.label}</span><p className="sync-setting-hint">{scopeText('Edit in Luma.', germanScope)}</p>
   </div>;
   if (field.kind === 'languages') {
     const list: string[] = JSON.parse(String(effective));
@@ -76,15 +77,16 @@ export function PreferenceControl({ field, value, inherited, unavailable, defaul
         {field.unit && <span>{field.unit}</span>}
       </span>}
     </label>}
-    {value != null && <Button variant="ghost" type="button" size="icon" aria-label={`Reset ${field.label}`} title="Restore app default"
+    {value != null && <Button variant="ghost" type="button" size="icon" aria-label={`${germanScope ? 'Zurücksetzen:' : 'Reset'} ${field.label}`} title={scopeText('Restore app default', germanScope)}
       onClick={() => { setNumberDraft(undefined); setInvalid(false); onChange(null); }}><RotateCcw className="size-4" /></Button>}
     {defaultHint && <p className="sync-setting-hint">{defaultHint}</p>}
-    {newerFields.has(field.id) && <p className="sync-setting-hint">Needs a Luma build that reads this setting.</p>}
-    {invalid && field.kind === 'number' && <p className="sync-setting-hint text-destructive" role="status">Enter a number from {field.min} to {field.max}.</p>}
+    {newerFields.has(field.id) && <p className="sync-setting-hint">{scopeText('Requires Luma 0.5.10 or later.', germanScope)}</p>}
+    {invalid && field.kind === 'number' && <p className="sync-setting-hint text-destructive" role="status">{germanScope ? 'Gib eine Zahl zwischen' : 'Enter a number from'} {field.min} {germanScope ? 'und' : 'to'} {field.max}{germanScope ? ' ein.' : '.'}</p>}
   </div>;
 }
 
-export function PreferenceEditor({ section, values, unavailable, addons, onChange }: {
+export function PreferenceEditor({ section, values, unavailable, addons, onChange, germanScope }: {
+  germanScope: boolean;
   section: 'tracking' | 'preferences';
   values: PreferenceSettings | null;
   unavailable: string[];
@@ -99,7 +101,7 @@ export function PreferenceEditor({ section, values, unavailable, addons, onChang
     const all = !search || group.title.toLowerCase().includes(search);
     const matches = (label: string) => all || label.includes(search);
     const addon = group.title === 'Search' && matches('search add-on');
-    return { ...group, fields: all ? group.fields : group.fields.filter(field => matches(field.label.toLowerCase()) ||
+    return { ...group, fields: all ? group.fields : group.fields.filter(field => matches(field.label.toLowerCase()) || matches(scopeText(field.label, germanScope).toLowerCase()) ||
       addon && field.id === 'metadata.searchProvider'),
       genres: ['Search', 'Person pages'].includes(group.title) && matches('excluded genres'),
       addon,
@@ -116,7 +118,7 @@ export function PreferenceEditor({ section, values, unavailable, addons, onChang
         }}><X /></Button>}
       </div>}
     </div>
-    {!tracking && <p className="sync-area-note">Applies to all devices of this profile. Screen, input and performance settings are under Per device.</p>}
+    {!tracking && <p className="sync-area-note" lang={germanScope ? 'de' : undefined}>{scopeText('Applies to all devices of this profile. Screen, input and performance settings are under Per device.', germanScope)}</p>}
     {tracking && <p className="sync-area-note">Applies to all devices of this profile.</p>}
     {!groups.length && <p className="sync-empty" role="status">No settings found for “{query.trim()}”.</p>}
     <div className="sync-preference-groups">
@@ -124,7 +126,7 @@ export function PreferenceEditor({ section, values, unavailable, addons, onChang
       <summary className="sync-record-summary"><ChevronRight aria-hidden className="sync-chevron size-4" />{group.title}</summary>
       {tracking && group.title === 'Sources' && <p className="sync-setting-note">Choose which connected accounts Luma uses for watch progress and watchlists. Source selection does not connect an account. Use Sync watch activity above for two-way sync.</p>}
       {tracking && group.title === 'Library' && <LibraryLayoutEditor values={values} unavailable={unavailable} onChange={onChange} />}
-      {!!group.fields.length && <div className="sync-settings-grid">{group.fields.map(field => <PreferenceControl key={field.id} field={field}
+      {!!group.fields.length && <div className="sync-settings-grid">{group.fields.map(field => <PreferenceControl key={field.id} field={field.id === 'playback.streamSort' ? scopeField(field, germanScope) : field} germanScope={field.id === 'playback.streamSort' && germanScope}
         value={values[field.id]} inherited={field.id === 'home.posterYears' ? values['home.posterTitles'] : undefined}
         unavailable={unavailable.includes(field.id)} onChange={value => {
           const next = { ...values, [field.id]: value };

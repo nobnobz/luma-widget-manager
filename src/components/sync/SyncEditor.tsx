@@ -13,6 +13,7 @@ import { HomeEditor } from './HomeEditor';
 import { SortableRow, SortableRows } from './SortableRows';
 import { SetupLibrary } from './SetupLibrary';
 import { FormatterEditor } from './FormatterEditor';
+import { scopeText } from '@/lib/luma-sync/scope-language';
 import { DevicePreferenceEditor } from './DevicePreferenceEditor';
 import { PreferenceEditor } from './PreferenceEditor';
 import { CatalogManifestImport, SyncCatalogProvider } from './SyncCatalogs';
@@ -177,6 +178,7 @@ function AddonsEditor({ draft, inherited, change }: { draft: SyncProfileDraft; i
   </section>;
 }
 export function SyncEditor() {
+  const germanScope = useSyncExternalStore(() => () => {}, () => /^de(?:-|$)/i.test(navigator.language), () => false);
   const [automaticCatalogs, setAutomaticCatalogs] = useState(false);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [devicesSupported, setDevicesSupported] = useState<boolean | null>(null);
@@ -671,7 +673,7 @@ export function SyncEditor() {
           ['device', 'Per device', MonitorSmartphone],
           ['devices', 'Devices', Smartphone],
         ] as const).map(([id, label, Icon]) => <button key={id} type="button" className="sync-area" aria-pressed={tab === id}
-          aria-label={label} onClick={() => {
+          aria-label={id === 'device' ? scopeText(label, germanScope) : label} onClick={() => {
             if (tab === id) return;
             setTab(id);
             const start = workspaceStart.current;
@@ -679,7 +681,7 @@ export function SyncEditor() {
             if (start && bottom !== undefined && start.getBoundingClientRect().top < bottom) start.scrollIntoView({ block: 'start' });
           }}>
           <Icon aria-hidden className="size-4" />
-          <span>{label}</span>
+          <span lang={id === 'device' && germanScope ? 'de' : undefined}>{id === 'device' ? scopeText(label, germanScope) : label}</span>
         </button>)}
       </nav>)}
     </div>}
@@ -740,9 +742,9 @@ export function SyncEditor() {
         {tab === 'preferences' && transport.current && <ProtectedKeysPanel token={transport.current.session.token} master={transport.current.session.master}
           spaceID={transport.current.session.spaceID} documents={workspace.documents} profile={workspace.profile} supported={keysSupported}
           refresh={reloads} dirty={dirty} canChange={!disabled && !dirty} commit={commitProtectedKey} sessionEnded={sessionEnded} />}
-        {(tab === 'tracking' || tab === 'preferences') && <PreferenceEditor section={tab} values={workspace.draft.preferences}
+        {(tab === 'tracking' || tab === 'preferences') && <PreferenceEditor germanScope={germanScope} section={tab} values={workspace.draft.preferences}
           unavailable={workspace.draft.unavailablePreferences} addons={workspace.draft.addons} onChange={preferences => edit({ ...workspace.draft, preferences })} />}
-        {tab === 'device' && <DevicePreferenceEditor values={workspace.draft.preferences} unavailable={workspace.draft.unavailablePreferences}
+        {tab === 'device' && <DevicePreferenceEditor germanScope={germanScope} values={workspace.draft.preferences} unavailable={workspace.draft.unavailablePreferences}
           onChange={preferences => edit({ ...workspace.draft, preferences })} />}
         {tab === 'tags' && <FormatterEditor packs={workspace.draft.formatter} onChange={formatter => edit({ ...workspace.draft, formatter })}
           preferences={workspace.draft.preferences} unavailable={workspace.draft.unavailablePreferences}
