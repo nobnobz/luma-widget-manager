@@ -52,7 +52,9 @@ export class ManagedConnections {
     }
     const expected = { trakt: 'https://auth.trakt.tv/activate', simkl: 'https://simkl.com/pin', mdblist: 'https://mdblist.com/oauth/device/' }[this.provider];
     requireSync(value.flow === undefined && typeof value.userCode === 'string' && /^[A-Z0-9-]{4,16}$/.test(value.userCode) &&
-      url.origin + url.pathname === expected && [...url.searchParams.keys()].every(key => key === 'user_code'));
+      url.origin + url.pathname === expected);
+    if (this.provider === 'trakt') requireSync(url.searchParams.size === 0);
+    else requireSync(url.searchParams.size === 1 && url.searchParams.get('user_code') === value.userCode);
     return { id: value.id, userCode: value.userCode, verificationURL: url.href, expiresIn: value.expiresIn, interval: value.interval };
   }
   async poll(id: string, signal: AbortSignal): Promise<{ state: 'pending'; interval: number } | { state: 'connected'; account: ConnectionStatus }> {

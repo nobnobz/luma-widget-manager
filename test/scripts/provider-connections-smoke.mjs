@@ -48,7 +48,10 @@ export async function providerConnectionsSmoke({ page, native, evidence, fixture
     await link.waitFor();
     assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
     if (name !== 'Trakt') {
-      await dialog.getByLabel(`${name} device code`).waitFor();
+      assert.equal(await dialog.getByLabel(`${name} device code`).count(), 0);
+      const url = new URL(await link.getAttribute('href'));
+      await dialog.getByRole('button', { name: 'Show device code' }).click();
+      assert.equal(await dialog.getByLabel(`${name} device code`).textContent(), url.searchParams.get('user_code'));
     } else {
       assert.equal(await dialog.getByLabel('Trakt device code').count(), 0);
       const authorize = new URL(await link.getAttribute('href'));

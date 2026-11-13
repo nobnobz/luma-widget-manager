@@ -13,7 +13,7 @@ import { WatchActivity } from './WatchActivity';
 type Props = {
   token: string; profile: string; realm: string; documents: SyncDocuments;
   providers: readonly ManagedProvider[] | null; traktPKCE: boolean; canChange: boolean; dirty: boolean;
-  commit: (provider: ManagedProvider, value: string, expected: string | undefined, signal: AbortSignal) => Promise<void>;
+  commit: (provider: ManagedProvider, value: string, expected: string | undefined, revision: string, signal: AbortSignal) => Promise<void>;
   abandon: (provider: ManagedProvider, value: string, signal: AbortSignal) => Promise<boolean>;
   commitWatch: (bindings: Partial<Record<ManagedProvider, string>>, signal: AbortSignal) => Promise<void>;
   sessionEnded: () => void;
@@ -44,9 +44,11 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
   const [mode, setMode] = useState<'connect' | 'disconnect' | null>(null);
   const [challenge, setChallenge] = useState<ConnectionChallenge | null>(null);
   const [ready, setReady] = useState<string | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [showCode, setShowCode] = useState(false);
   const [notice, setNotice] = useState('');
   const active = useRef<AbortController | null>(null), pending = useRef<string | null>(null), approved = useRef(false);
   const expected = useRef<string | undefined>(undefined);
+  const expectedRevision = useRef('');
   const ended = useRef(sessionEnded);
   useEffect(() => { ended.current = sessionEnded; }, [sessionEnded]);
   useEffect(() => {
@@ -67,13 +69,13 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
   }, [client]);
 
   async function install(value: string, signal: AbortSignal) {
-    await commit(provider, value, expected.current, signal);
+    await commit(provider, value, expected.current, expectedRevision.current, signal);
     signal.throwIfAborted();
     const previous = connectionID(expected.current, realm);
     // Commit first: cancelling or losing the replacement flow keeps the old account.
-    if (previous && value !== disconnected && previous !== connectionID(value, realm)) {
+    if (previous && previous !== connectionID(value, realm)) {
       try { await client.disconnect(previous, signal); }
-      catch { setNotice('New account connected. The previous authorization could not be removed; revoke it in the provider’s account settings.'); }
+      catch { setNotice('The profile was updated. The previous authorization could not be removed; revoke it in the provider’s account settings.'); }
     }
     pending.current = null; setReady(null); setChallenge(null); setMode(null); setRevision(n => n + 1);
   }
@@ -91,7 +93,8 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
   }
   function connect() {
     expected.current = selection; approved.current = false; pending.current = null;
-    setMode('connect'); setChallenge(null); setReady(null); setNotice('');
+    expectedRevision.current = documents.connectionRevision(profile, provider);
+    setMode('connect'); setChallenge(null); setReady(null); setNotice(''); setShowCode(false);
     void run(async signal => {
       const flow = await client.start(crypto.randomUUID(), signal, usePKCE);
       pending.current = flow.id;
@@ -135,18 +138,20 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
   }
   const status = unreadable ? 'Manage this connection in Luma.' : id ?
     missing || account?.needsReconnect ? 'Reconnect this account.' : account?.id === id ? `Connected as ${account.username}` : statusError || 'Checking account…'
-    : selection === disconnected ? 'Disconnected' : 'No Luma Sync connection';
+    : selection === disconnected ? 'Disconnected on all synced devices' : 'No Luma Sync connection';
   return <div className="sync-record grid min-w-0 content-start gap-3 pb-3">
     <div><h3 className="font-medium">{name}</h3><p className="sync-setting-hint" role="status">{status}</p></div>
     {!enabled && <p className="sync-setting-hint">{providers === null ? 'Update the Sync server to manage accounts here.' : `${name} is not enabled on this Sync server.`}</p>}
     {notice && <p className="sync-setting-note" role="status">{notice}</p>}
     <div className="flex flex-wrap gap-2">
-      <Button type="button" variant="outline" disabled={!enabled || !canChange || unreadable} onClick={connect}>
-        {id ? missing || account?.needsReconnect ? 'Reconnect' : 'Switch account' : 'Connect'} {name}
+      <Button type="button" variant="outline" disabled={!enabled || !canChange || unreadable} onClick={connect}
+        aria-label={id ? missing || account?.needsReconnect ? `Reconnect ${name}` : `Switch account ${name}` : `Connect ${name}`}>
+        {id ? missing || account?.needsReconnect ? 'Reconnect' : 'Switch account' : `Connect ${name}`}
       </Button>
-      {id && <Button type="button" variant="outline" disabled={!enabled || !canChange || unreadable} onClick={() => {
-        expected.current = selection; setMode('disconnect'); setReady(null); setError('');
-      }}>Disconnect {name}</Button>}
+      {id && <Button type="button" variant="outline" aria-label={`Disconnect ${name}`} disabled={!enabled || !canChange || unreadable} onClick={() => {
+        expected.current = selection; expectedRevision.current = documents.connectionRevision(profile, provider);
+        setMode('disconnect'); setReady(null); setError('');
+      }}>Disconnect</Button>}
       {id && enabled && statusError && <Button type="button" variant="ghost" aria-label={`Check ${name} connection`} onClick={() => setRevision(n => n + 1)}><RefreshCw />Retry</Button>}
     </div>
     <Dialog open={mode !== null} onOpenChange={open => { if (!open) void close(); }}>
@@ -154,13 +159,14 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
         onPointerDownOutside={event => event.preventDefault()}>
         <DialogTitle>{mode === 'disconnect' ? `Disconnect ${name}?` : `Connect ${name}`}</DialogTitle>
         <DialogDescription>{mode === 'disconnect' ? 'This disconnects the account from this Luma profile on every synced device.'
-          : usePKCE ? 'Sign in to Trakt and approve access. This connects the current profile on your Luma devices.'
-          : 'Approve this code in your own account. The connection will be saved for this profile on your Luma devices.'}</DialogDescription>
+          : usePKCE || provider !== 'trakt' ? `Sign in to ${name} and approve access. Luma will use this account for the selected profile on your synced devices.`
+          : 'Open Trakt and enter the code to approve access for this profile.'}</DialogDescription>
         {mode === 'connect' && challenge && <div className="grid gap-3">
-          {challenge.userCode && <p className="text-center font-mono text-2xl tracking-widest" aria-label={`${name} device code`}>{challenge.userCode}</p>}
+          {challenge.userCode && (provider === 'trakt' || showCode) && <p className="text-center font-mono text-2xl tracking-widest" aria-label={`${name} device code`}>{challenge.userCode}</p>}
           <Button asChild variant="outline">
             <a href={challenge.verificationURL} target="_blank" rel="noopener noreferrer">{usePKCE ? 'Continue with Trakt' : `Open ${name}`}<ExternalLink aria-hidden className="size-4" /></a>
           </Button>
+          {challenge.userCode && provider !== 'trakt' && !showCode && <Button variant="ghost" type="button" onClick={() => setShowCode(true)}>Show device code</Button>}
           <p className="sync-setting-hint" role="status">Waiting for approval… You have up to {Math.ceil(challenge.expiresIn / 60)} minutes.</p>
         </div>}
         {ready && <p role="status">{busy ? 'Saving the connection to Luma Sync…' : 'The account change could not be confirmed in Luma Sync. Retry to finish.'}</p>}
@@ -171,7 +177,7 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
           {ready && <Button type="button" disabled={busy} onClick={() => void run(signal => install(ready, signal))}>Retry save</Button>}
           {!ready && mode === 'disconnect' && <Button type="button" variant="destructive" disabled={busy} onClick={() => void run(async signal => {
             if (!id) return;
-            await client.disconnect(id, signal); approved.current = true; setReady(disconnected);
+            approved.current = true; setReady(disconnected);
             await install(disconnected, signal);
           })}>Disconnect on all devices</Button>}
         </div>
@@ -182,7 +188,7 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
 export function ProviderConnections(props: Props) {
   return <section className="sync-panel" aria-labelledby="sync-accounts-title">
     <h2 id="sync-accounts-title">Connected accounts</h2>
-    <p className="sync-setting-note">Connect once per profile. Existing direct sign-ins stay on their device. Account changes are saved immediately.</p>
+    <p className="sync-setting-note">Connect once for the selected profile. Apps on this Luma Sync server use the connection after their next sync. Existing direct sign-ins stay on their devices.</p>
     {props.dirty && <p className="sync-setting-note">Save or discard your setup changes before changing an account.</p>}
     <div className="grid gap-3 md:grid-cols-3">{managedProviders.map(provider => <ProviderAccount {...props} key={provider} provider={provider} />)}</div>
     <WatchActivity token={props.token} profile={props.profile} documents={props.documents} providers={props.providers}

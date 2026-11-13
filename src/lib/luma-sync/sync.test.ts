@@ -63,7 +63,10 @@ test('account changes publish only a native-compatible profile reference and pre
   assert.equal(merged.managedConnection('1', 'simkl'), `${space}:${second}`);
   assert.equal(merged.connectionPublication('1', 'trakt', `${space}:${second}`, `${space}:${device}`), null);
   const barrier = merged.connectionBarrier('1', 'trakt');
-  assert.equal(new SyncDocuments(loaded([[device, source], [browser, barrier]]), space, browser).managedConnection('1', 'trakt'), `${space}:${second}`);
+  const afterBarrier = new SyncDocuments(loaded([[device, source], [browser, barrier]]), space, browser);
+  assert.equal(afterBarrier.managedConnection('1', 'trakt'), `${space}:${second}`);
+  assert.throws(() => afterBarrier.connectionPublication('1', 'trakt', 'disconnected', `${space}:${second}`,
+    merged.connectionRevision('1', 'trakt')), /connection_changed/);
   assert((payload(barrier.records, common) as { fields: Record<string, { revision: number }> }).fields['integrations.traktConnection'].revision > 26);
   assert.throws(() => merged.connectionPublication('1', 'trakt', 'disconnected', `${space}:${device}`), /connection_changed/);
   const removed = merged.connectionPublication('1', 'trakt', 'disconnected', `${space}:${second}`)!;

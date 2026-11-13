@@ -531,13 +531,13 @@ export function SyncEditor() {
       }
     });
   }
-  async function commitConnection(provider: ManagedProvider, value: string, expected: string | undefined, signal: AbortSignal) {
+  async function commitConnection(provider: ManagedProvider, value: string, expected: string | undefined, revision: string, signal: AbortSignal) {
     const connection = transport.current;
     if (!connection || !workspace || active.current || dirty || stale) throw new Error('connection_changed');
     for (let attempt = 0; attempt < 2; attempt++) {
       const baseline = await connection.load(signal);
       const documents = new SyncDocuments(baseline, await connection.realm(), connection.session.deviceID);
-      const snapshot = documents.connectionPublication(workspace.profile, provider, value, expected);
+      const snapshot = documents.connectionPublication(workspace.profile, provider, value, expected, revision);
       try { if (snapshot) await connection.publish(snapshot, baseline, signal); }
       catch (error) { if (attempt === 0 && error instanceof SyncHTTPError && error.status === 409) continue; throw error; }
       // Re-read confirms ambiguous replies on a retry and preserves all unrelated domains.

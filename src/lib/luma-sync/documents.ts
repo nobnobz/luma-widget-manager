@@ -296,7 +296,15 @@ export class SyncDocuments {
     connectionID(value, this.realmID);
     return value as string | undefined;
   }
-  connectionPublication(id: string, provider: ManagedProvider, value: string, expected: string | undefined): Snapshot | null {
+  connectionRevision(id: string, provider: ManagedProvider): string {
+    this.profile(id);
+    const register = this.commonRegisters(id).winners.get(connectionField(provider));
+    return JSON.stringify([this.epoch, this.roster.get(id)?.get('exists')?.stamp, register?.revision, register?.deviceID]);
+  }
+  connectionPublication(id: string, provider: ManagedProvider, value: string, expected: string | undefined, revision?: string): Snapshot | null {
+    if (revision !== undefined && this.managedConnection(id, provider) !== value && revision !== this.connectionRevision(id, provider)) {
+      throw new Error('connection_changed');
+    }
     return this.connectionRecord(id, provider, value, expected, false);
   }
   connectionBarrier(id: string, provider: ManagedProvider): Snapshot {
