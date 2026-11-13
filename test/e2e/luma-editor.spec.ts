@@ -330,34 +330,30 @@ test('reorders page rows and nested folders without losing their contents', asyn
   await page.goto('/');
   const hub = await openMovies(page);
   const layout = hub.getByRole('region', { name: 'Page layout' });
+  const moveDown = async (grip: ReturnType<typeof layout.getByRole>, targetID: string) => {
+    await grip.focus();
+    await page.keyboard.press('Space');
+    await expect(grip).toHaveAttribute('aria-pressed', 'true');
+    // dnd-kit installs the movement listener in a timer after activating
+    // the sensor. Let the browser measure the active layout before moving.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('[id^=DndLiveRegion]').filter({ hasText: `moved over droppable area ${targetID}` })).toBeAttached();
+    await page.keyboard.press('Space');
+  };
   const rowGrip = layout.getByRole('button', { name: 'Reorder Explore', exact: true });
-  await rowGrip.focus();
-  await page.keyboard.press('Space');
-  await expect(rowGrip).toHaveAttribute('aria-pressed', 'true');
-  await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[id^=DndLiveRegion]').filter({ hasText: /moved over droppable area catalog:test-catalog/ })).toBeAttached();
-  await page.keyboard.press('Space');
+  await moveDown(rowGrip, 'catalog:test-catalog');
   await expect(layout.locator('[data-testid^="page-block-"]').first()).toHaveAttribute('data-testid', 'page-block-catalog:test-catalog');
   await hub.getByText(/Explore · 2 folders/).click();
   const genreGrip = hub.getByRole('button', { name: 'Reorder Genres', exact: true }).filter({ visible: true });
-  await genreGrip.focus();
-  await page.keyboard.press('Space');
-  await expect(genreGrip).toHaveAttribute('aria-pressed', 'true');
-  await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[id^=DndLiveRegion]').filter({ hasText: `moved over droppable area ${section.folders[1].id}` })).toBeAttached();
-  await page.keyboard.press('Space');
+  await moveDown(genreGrip, section.folders[1].id);
   await expect(hub.locator(`[data-testid="folder-card-${section.folders[1].id}"]`)).toBeVisible();
   const genres = hub.getByTestId(`folder-card-${section.folders[0].id}`);
   await genres.getByRole('button', { name: /Expand item/i }).filter({ visible: true }).click();
   await genres.getByRole('button', { name: 'Edit hub page', exact: true }).click();
   const nested = page.getByRole('dialog').filter({ hasText: 'Folder level 2 of 3' }).last();
   const deeperGrip = nested.getByRole('button', { name: 'Reorder Science fiction', exact: true }).filter({ visible: true });
-  await deeperGrip.focus();
-  await page.keyboard.press('Space');
-  await expect(deeperGrip).toHaveAttribute('aria-pressed', 'true');
-  await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[id^=DndLiveRegion]').filter({ hasText: `moved over droppable area ${section.folders[0].subfolders![1].id}` })).toBeAttached();
-  await page.keyboard.press('Space');
+  await moveDown(deeperGrip, section.folders[0].subfolders![1].id);
   await nested.getByRole('button', { name: 'Done', exact: true }).click();
   await hub.getByRole('button', { name: 'Done', exact: true }).click();
   const native = await nativePreview(page);
