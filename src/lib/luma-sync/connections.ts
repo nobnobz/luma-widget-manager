@@ -12,7 +12,7 @@ export function connectionID(value: unknown, realm: string): string | undefined 
   return value.slice(realm.length + 1);
 }
 export interface ConnectionStatus { id: string; username: string; needsReconnect?: boolean }
-export interface ConnectionChallenge { id: string; userCode: string; verificationURL: string; expiresIn: number; interval: number }
+export interface ConnectionChallenge { id: string; userCode?: string; flow?: "pkce"; verificationURL: string; expiresIn: number; interval: number }
 function identity(value: Record<string, unknown>): ConnectionStatus {
   requireSync(uuid(value.id) && typeof value.username === 'string' && !!value.username.trim() && value.username.length <= 1024 &&
     (value.needsReconnect === undefined || typeof value.needsReconnect === 'boolean'));
@@ -32,15 +32,27 @@ export class ManagedConnections {
   private call(path: string, signal?: AbortSignal, method = 'GET', body?: unknown) {
     return this.request(this.base + path, { token: this.token, signal, method, body });
   }
-  async start(attempt: string, signal: AbortSignal): Promise<ConnectionChallenge> {
-    requireSync(uuid(attempt));
-    const value = await this.call('start', signal, 'POST', { attempt });
-    requireSync(uuid(value.id) && typeof value.userCode === 'string' && /^[A-Z0-9-]{4,16}$/.test(value.userCode) &&
-      typeof value.verificationURL === 'string' && int(value.expiresIn, 1, 600) && int(value.interval, 1, 60));
+  async start(attempt: string, signal: AbortSignal, traktPKCE = false,
+              origin = typeof location === 'undefined' ? '' : location.origin): Promise<ConnectionChallenge> {
+    requireSync(uuid(attempt) && (!traktPKCE || this.provider === 'trakt'));
+    const value = await this.call('start', signal, 'POST', { attempt, ...(traktPKCE ? { flow: 'pkce' } : {}) });
+    requireSync(uuid(value.id) && typeof value.verificationURL === 'string' && int(value.expiresIn, 1, 600) && int(value.interval, 1, 60));
     const url = new URL(value.verificationURL);
+    requireSync(!url.username && !url.password && !url.hash);
+    if (traktPKCE) {
+      const params = url.searchParams;
+      const read = (name: string) => params.get(name) ?? '';
+      requireSync(value.flow === 'pkce' && value.userCode === undefined &&
+        url.origin + url.pathname === 'https://auth.trakt.tv/oauth/authorize' && params.size === 6 &&
+        origin.startsWith('https://') && read('redirect_uri') === origin + '/oauth/trakt/callback' &&
+        read('response_type') === 'code' && read('code_challenge_method') === 'S256' &&
+        /^[A-Za-z0-9_-]{8,256}$/.test(read('client_id')) &&
+        /^[A-Za-z0-9_-]{43}$/.test(read('state')) && /^[A-Za-z0-9_-]{43}$/.test(read('code_challenge')));
+      return { id: value.id, flow: 'pkce', verificationURL: url.href, expiresIn: value.expiresIn, interval: value.interval };
+    }
     const expected = { trakt: 'https://auth.trakt.tv/activate', simkl: 'https://simkl.com/pin', mdblist: 'https://mdblist.com/oauth/device/' }[this.provider];
-    requireSync(url.origin + url.pathname === expected && !url.username && !url.password && !url.hash &&
-      [...url.searchParams.keys()].every(key => key === 'user_code'));
+    requireSync(value.flow === undefined && typeof value.userCode === 'string' && /^[A-Z0-9-]{4,16}$/.test(value.userCode) &&
+      url.origin + url.pathname === expected && [...url.searchParams.keys()].every(key => key === 'user_code'));
     return { id: value.id, userCode: value.userCode, verificationURL: url.href, expiresIn: value.expiresIn, interval: value.interval };
   }
   async poll(id: string, signal: AbortSignal): Promise<{ state: 'pending'; interval: number } | { state: 'connected'; account: ConnectionStatus }> {

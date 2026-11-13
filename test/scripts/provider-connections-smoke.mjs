@@ -1,12 +1,14 @@
 // Runs inside the real HTTPS/passkey/native-format harness in sync-editor-smoke.
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { SyncDocuments } from '../../src/lib/luma-sync/documents.ts';
 import { connectionID } from '../../src/lib/luma-sync/connections.ts';
 
 export function providerFixture() {
   const starts = { trakt: 0, simkl: 0, mdblist: 0 }, revoked = [];
-  return { starts, revoked, fetch: async (raw, options) => {
+  const challenges = new Map();
+  return { starts, revoked, challenges, fetch: async (raw, options) => {
     const url = new URL(raw), kind = url.hostname.includes('trakt') ? 'trakt' : url.hostname.includes('simkl') ? 'simkl' : 'mdblist';
     const body = options.body instanceof URLSearchParams ? Object.fromEntries(options.body) : options.body ? JSON.parse(options.body) : {};
     if (/\/(?:code|device|device-authorization\/)\/?$/.test(url.pathname)) {
@@ -16,6 +18,11 @@ export function providerFixture() {
     if (/revoke/.test(url.pathname)) { revoked.push({ kind, token: body.token }); return Response.json({}); }
     if (/token/.test(url.pathname)) {
       const code = body.code ?? body.device_code;
+      if (kind === 'trakt') {
+        assert.equal(body.grant_type, 'authorization_code');
+        assert.equal(body.client_secret, undefined);
+        assert.equal(createHash('sha256').update(body.code_verifier).digest('base64url'), challenges.get(code));
+      }
       return Response.json({ access_token: `fixture-private-access-${code}`, refresh_token: `fixture-private-refresh-${code}`,
         token_type: 'Bearer', expires_in: 3600, scope: kind === 'simkl' ? 'media:read media:write' : 'write' });
     }
@@ -34,12 +41,29 @@ export async function providerConnectionsSmoke({ page, native, evidence, fixture
   const realm = await native.realm();
   await page.getByRole('button', { name: 'Tracking', exact: true }).click();
   await region.waitFor();
-  const connect = async (name, action = 'Connect') => {
+  const connect = async (name, action = 'Connect', approve = true) => {
     await region.getByRole('button', { name: `${action} ${name}`, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: `Connect ${name}`, exact: true });
-    await dialog.getByLabel(`${name} device code`).waitFor();
-    const link = dialog.getByRole('link', { name: `Open ${name}`, exact: true });
+    const link = dialog.getByRole('link', { name: name === 'Trakt' ? 'Continue with Trakt' : `Open ${name}`, exact: true });
+    await link.waitFor();
     assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+    if (name !== 'Trakt') {
+      await dialog.getByLabel(`${name} device code`).waitFor();
+    } else {
+      assert.equal(await dialog.getByLabel('Trakt device code').count(), 0);
+      const authorize = new URL(await link.getAttribute('href'));
+      assert.equal(authorize.origin + authorize.pathname, 'https://auth.trakt.tv/oauth/authorize');
+      const code = `trakt-${++fixture.starts.trakt}`;
+      fixture.challenges.set(code, authorize.searchParams.get('code_challenge'));
+      if (approve) {
+        const callback = new URL(authorize.searchParams.get('redirect_uri'));
+        callback.search = new URLSearchParams({ state: authorize.searchParams.get('state'), code }).toString();
+        const res = await page.request.get(callback.href, { maxRedirects: 0, headers: {
+          'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document'
+        } });
+        assert.equal(res.status(), 303);
+      }
+    }
     return dialog;
   };
   for (const [kind, name] of [['trakt', 'Trakt'], ['simkl', 'Simkl'], ['mdblist', 'MDBList']]) {
@@ -67,7 +91,7 @@ export async function providerConnectionsSmoke({ page, native, evidence, fixture
   console.log('Watch activity consent reached the native-format reader and could be turned off.');
   advanceWindow(); // Keep separate user journeys within the real production quotas.
   const before = (await read()).managedConnection('1', 'trakt');
-  const cancel = await connect('Trakt', 'Switch account');
+  const cancel = await connect('Trakt', 'Switch account', false);
   await cancel.getByRole('button', { name: 'Cancel', exact: true }).click();
   await cancel.waitFor({ state: 'hidden' });
   assert.equal((await read()).managedConnection('1', 'trakt'), before);

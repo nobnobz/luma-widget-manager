@@ -12,7 +12,7 @@ import { WatchActivity } from './WatchActivity';
 
 type Props = {
   token: string; profile: string; realm: string; documents: SyncDocuments;
-  providers: readonly ManagedProvider[] | null; canChange: boolean; dirty: boolean;
+  providers: readonly ManagedProvider[] | null; traktPKCE: boolean; canChange: boolean; dirty: boolean;
   commit: (provider: ManagedProvider, value: string, expected: string | undefined, signal: AbortSignal) => Promise<void>;
   abandon: (provider: ManagedProvider, value: string, signal: AbortSignal) => Promise<boolean>;
   commitWatch: (bindings: Partial<Record<ManagedProvider, string>>, signal: AbortSignal) => Promise<void>;
@@ -27,12 +27,13 @@ function failureMessage(error: unknown) {
     if (error.status === 429) return 'The service is busy. Wait and try again.';
   }
   if (error instanceof Error && error.message === 'connection_changed') return 'This account was changed on another device. Close and reload before trying again.';
-  if (error instanceof Error && error.message === 'connection_expired') return 'The code expired. Start again to get a new code.';
+  if (error instanceof Error && error.message === 'connection_expired') return 'The authorization expired. Start again to reconnect.';
   return 'Could not confirm the connection. Check your internet connection and try again.';
 }
 function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProvider }) {
   const { token, profile, realm, documents, providers, canChange, commit, abandon, sessionEnded } = props;
   const name = providerNames[provider];
+  const usePKCE = provider === 'trakt' && props.traktPKCE;
   const client = useMemo(() => new ManagedConnections(provider, profile, token), [provider, profile, token]);
   let selection: string | undefined, id: string | undefined, unreadable = false;
   try { selection = documents.managedConnection(profile, provider); id = connectionID(selection, realm); }
@@ -92,7 +93,7 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
     expected.current = selection; approved.current = false; pending.current = null;
     setMode('connect'); setChallenge(null); setReady(null); setNotice('');
     void run(async signal => {
-      const flow = await client.start(crypto.randomUUID(), signal);
+      const flow = await client.start(crypto.randomUUID(), signal, usePKCE);
       pending.current = flow.id;
       if (signal.aborted) { void client.cancel(flow.id).catch(() => undefined); signal.throwIfAborted(); }
       setChallenge(flow);
@@ -153,14 +154,17 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
         onPointerDownOutside={event => event.preventDefault()}>
         <DialogTitle>{mode === 'disconnect' ? `Disconnect ${name}?` : `Connect ${name}`}</DialogTitle>
         <DialogDescription>{mode === 'disconnect' ? 'This disconnects the account from this Luma profile on every synced device.'
+          : usePKCE ? 'Sign in to Trakt and approve access. This connects the current profile on your Luma devices.'
           : 'Approve this code in your own account. The connection will be saved for this profile on your Luma devices.'}</DialogDescription>
         {mode === 'connect' && challenge && <div className="grid gap-3">
-          <p className="text-center font-mono text-2xl tracking-widest" aria-label={`${name} device code`}>{challenge.userCode}</p>
-          <a className="inline-flex items-center justify-center gap-2 underline" href={challenge.verificationURL} target="_blank" rel="noopener noreferrer">Open {name}<ExternalLink aria-hidden className="size-4" /></a>
-          <p className="sync-setting-hint" role="status">Waiting for approval… The code is valid for up to {Math.ceil(challenge.expiresIn / 60)} minutes.</p>
+          {challenge.userCode && <p className="text-center font-mono text-2xl tracking-widest" aria-label={`${name} device code`}>{challenge.userCode}</p>}
+          <Button asChild variant="outline">
+            <a href={challenge.verificationURL} target="_blank" rel="noopener noreferrer">{usePKCE ? 'Continue with Trakt' : `Open ${name}`}<ExternalLink aria-hidden className="size-4" /></a>
+          </Button>
+          <p className="sync-setting-hint" role="status">Waiting for approval… You have up to {Math.ceil(challenge.expiresIn / 60)} minutes.</p>
         </div>}
         {ready && <p role="status">{busy ? 'Saving the connection to Luma Sync…' : 'The account change could not be confirmed in Luma Sync. Retry to finish.'}</p>}
-        {busy && !challenge && !ready && <p role="status">{mode === 'connect' ? 'Requesting a code…' : 'Disconnecting…'}</p>}
+        {busy && !challenge && !ready && <p role="status">{mode === 'connect' ? usePKCE ? 'Preparing Trakt sign-in…' : 'Requesting a code…' : 'Disconnecting…'}</p>}
         {error && <p className="sync-setting-note text-destructive" role="alert">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" disabled={!!ready && busy} onClick={() => void close()}>{ready ? 'Close' : 'Cancel'}</Button>

@@ -184,6 +184,7 @@ export function SyncEditor() {
   const [devicesSupported, setDevicesSupported] = useState<boolean | null>(null);
   const [reloads, setReloads] = useState(0);
   const [keysSupported, setKeysSupported] = useState<boolean | null>(null);
+  const [traktPKCE, setTraktPKCE] = useState(false);
   const [connectionProviders, setConnectionProviders] = useState<ManagedProvider[] | null>(null);
   const [registration, setRegistration] = useState<'invite' | 'open' | null>(null);
   const [create, setCreate] = useState(false), [invite, setInvite] = useState('');
@@ -217,6 +218,7 @@ export function SyncEditor() {
       setAvailable(value.widgetEditor === 1);
       setConnectionProviders(value.widgetConnections === 1 ? managedProviders.filter(provider =>
         value[provider === 'mdblist' ? 'mdbListConnections' : `${provider}Connections`] === 1) : null);
+      setTraktPKCE(value.traktPKCE === 1);
       setDevicesSupported(value.widgetDevices === 1);
       setKeysSupported(value.widgetProtectedKeys === 1);
       setAutomaticCatalogs(value.widgetCatalogs === 1);
@@ -737,7 +739,7 @@ export function SyncEditor() {
             inherited={!!workspace.documents.profiles.find(row => row.id === workspace.profile)?.inheritsAddons}
             change={configuredAddons => edit({ ...workspace.draft, configuredAddons })} />}<CatalogManifestImport showStatus /></>}
         {tab === 'tracking' && transport.current && <ProviderConnections token={transport.current.session.token} profile={workspace.profile}
-          realm={workspace.documents.draftBaseline(workspace.profile).realm} documents={workspace.documents} providers={connectionProviders}
+          realm={workspace.documents.draftBaseline(workspace.profile).realm} documents={workspace.documents} providers={connectionProviders} traktPKCE={traktPKCE}
           dirty={dirty} canChange={!disabled && !dirty} commit={commitConnection} abandon={abandonConnection} commitWatch={commitWatchActivity} sessionEnded={sessionEnded} />}
         {tab === 'preferences' && transport.current && <ProtectedKeysPanel token={transport.current.session.token} master={transport.current.session.master}
           spaceID={transport.current.session.spaceID} documents={workspace.documents} profile={workspace.profile} supported={keysSupported}

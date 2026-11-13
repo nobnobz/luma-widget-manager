@@ -39,7 +39,7 @@ const testConnections = process.env.LUMA_TEST_CONNECTIONS_ONLY === '1';
 const connectionFixture = providerFixture();
 const service = createService({ origin, browserEditor: true, trustedProxyCIDRs: ['127.0.0.1/32'], port: 0, dataDir: path.join(workspace, 'data'),
   adminToken, adminPasswordLogin: true, serverSecret: randomBytes(32), inviteSecret: randomBytes(32).toString('base64url'),
-  ...(testConnections ? { traktClientID: 'fixture-client', traktClientSecret: 'fixture-secret', simklClientID: 'fixture-client', mdbListClientID: 'fixture-client' } : {}) }, {
+  ...(testConnections ? { traktClientID: 'fixture-client', simklClientID: 'fixture-client', mdbListClientID: 'fixture-client' } : {}) }, {
   ...(testConnections ? { fetchTracker: connectionFixture.fetch, fetchMdbList: connectionFixture.fetch } : {}),
   now: () => Date.now() + serviceClockOffset, fetchPublicManifest: async url => {
     if (url === 'https://v3-cinemeta.strem.io/manifest.json') return fetchCatalogJSON(url, AbortSignal.timeout(5000));

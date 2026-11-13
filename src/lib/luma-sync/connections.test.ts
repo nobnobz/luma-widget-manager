@@ -55,3 +55,22 @@ test('cancellation stops the polling wait immediately and propagates authorizati
   const client = new ManagedConnections('simkl', '1', 'session', async () => { throw new SyncHTTPError(401); });
   await assert.rejects(client.disconnect(id), (error: unknown) => error instanceof SyncHTTPError && error.status === 401);
 });
+
+test('Trakt PKCE requests and accepts only S256 for the active Sync origin', async () => {
+  const origin = 'https://sync.example.test';
+  const url = new URL('https://auth.trakt.tv/oauth/authorize');
+  url.search = new URLSearchParams({ client_id: 'fixture-client', redirect_uri: origin + '/oauth/trakt/callback',
+    response_type: 'code', code_challenge_method: 'S256', state: 's'.repeat(43), code_challenge: 'c'.repeat(43) }).toString();
+  const start = (target: URL) => new ManagedConnections('trakt', '2', 'session', async (_path, options) => {
+    assert.deepEqual(options?.body, { attempt, flow: 'pkce' });
+    return { id, flow: 'pkce', verificationURL: target.href, expiresIn: 300, interval: 5 };
+  }).start(attempt, new AbortController().signal, true, origin);
+  assert.equal((await start(url)).userCode, undefined);
+  for (const [key, value] of [['redirect_uri', 'https://other.example/oauth/trakt/callback'],
+    ['redirect_uri', origin + '/oauth/trakt/native'], ['code_challenge_method', 'plain']]) {
+    const bad = new URL(url); bad.searchParams.set(key, value);
+    await assert.rejects(start(bad));
+  }
+  const duplicate = new URL(url); duplicate.searchParams.append('state', 'x'.repeat(43));
+  await assert.rejects(start(duplicate));
+});
