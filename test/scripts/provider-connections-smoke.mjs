@@ -101,15 +101,22 @@ export async function providerConnectionsSmoke({ page, native, evidence, fixture
   await region.getByText('Connected as Personal trakt-1', { exact: true }).waitFor();
 
   // Commit on the server, then lose its reply. Retrying must reuse the grant.
+  const commitRoute = /\/v2\/snapshots\/[a-f0-9-]{36}$/;
   let dropped = 0;
   const loseReply = async route => {
     if (route.request().method() !== 'PUT') return route.continue();
-    dropped++; await route.fetch(); await route.abort('failed');
+    const request = route.request();
+    const headers = { ...await request.allHeaders(), origin: new URL(request.url()).origin, 'sec-fetch-site': 'same-origin' };
+    // Playwright's forwarding request is not a browser fetch and needs the
+    // original browser admission headers to reach the real commit endpoint.
+    const result = await page.request.put(request.url(), { headers, data: request.postDataBuffer() });
+    assert.equal(result.status(), 200, 'The server must accept the publication before its reply is dropped');
+    dropped++; await route.abort('failed');
   };
-  await page.route('**/v2/snapshots/*', loseReply);
+  await page.route(commitRoute, loseReply);
   const replacement = await connect('Trakt', 'Switch account');
   await replacement.getByRole('alert').waitFor();
-  await page.unroute('**/v2/snapshots/*', loseReply);
+  await page.unroute(commitRoute, loseReply);
   assert.equal(dropped, 2); // The transport also retries an identical commit once.
   await replacement.getByRole('button', { name: 'Retry save', exact: true }).click();
   await replacement.waitFor({ state: 'hidden' });
@@ -132,10 +139,10 @@ export async function providerConnectionsSmoke({ page, native, evidence, fixture
   // If neither commit reached the server, Close preserves the current choice
   // and advances its cursor before removing the unused authorization.
   const blockCommit = route => route.request().method() === 'PUT' ? route.abort('failed') : route.continue();
-  await page.route('**/v2/snapshots/*', blockCommit);
+  await page.route(commitRoute, blockCommit);
   const abandoned = await connect('Trakt');
   await abandoned.getByRole('alert').waitFor();
-  await page.unroute('**/v2/snapshots/*', blockCommit);
+  await page.unroute(commitRoute, blockCommit);
   await abandoned.getByRole('button', { name: 'Close', exact: true }).click();
   await abandoned.waitFor({ state: 'hidden' });
   assert.equal((await read()).managedConnection('1', 'trakt'), 'disconnected');
@@ -154,11 +161,21 @@ export async function providerConnectionsSmoke({ page, native, evidence, fixture
   await page.setViewportSize({ width: 375, height: 812 });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await region.screenshot({ path: path.join(evidence, 'provider-accounts-mobile.png') });
+  advanceWindow();
   await region.getByRole('button', { name: 'Disconnect Simkl', exact: true }).click();
   const disconnect = page.getByRole('dialog', { name: 'Disconnect Simkl?', exact: true });
+  await page.route(commitRoute, loseReply);
   await disconnect.getByRole('button', { name: 'Disconnect on all devices', exact: true }).click();
+  await disconnect.getByRole('alert').waitFor();
+  assert.equal(dropped, 4, await disconnect.getByRole('alert').textContent());
+  await page.unroute(commitRoute, loseReply);
+  assert.equal((await read()).managedConnection('1', 'simkl'), 'disconnected');
+  const revokedSimkl = () => fixture.revoked.filter(item => item.token.includes('simkl')).length;
+  assert.equal(revokedSimkl(), 0);
+  await disconnect.getByRole('button', { name: 'Close', exact: true }).click();
   await disconnect.waitFor({ state: 'hidden' });
   assert.equal((await read()).managedConnection('1', 'simkl'), 'disconnected');
+  assert.equal(revokedSimkl(), 1);
   await region.getByRole('button', { name: 'Connect Simkl', exact: true }).waitFor();
   await page.getByRole('combobox', { name: 'Profile', exact: true }).selectOption('2');
   await region.getByRole('button', { name: 'Connect MDBList', exact: true }).waitFor();

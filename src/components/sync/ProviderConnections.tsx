@@ -123,9 +123,10 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
     });
   }
   async function close() {
-    if (ready && ready !== disconnected) {
+    if (ready) {
       void run(async signal => {
-        // A publication reply may have been lost. Re-read before revoking.
+        // Re-read before revoking anything. This also reconciles a disconnect
+        // whose publication succeeded but whose response never reached us.
         const installed = await abandon(provider, ready, signal);
         if (installed) { await install(ready, signal); return; }
         pending.current = null; setReady(null); setChallenge(null); setMode(null);
