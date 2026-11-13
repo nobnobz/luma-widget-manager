@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Luma Sync: add a bilingual privacy and credits page, explain what watch activity sync sends, and show when the provider could not confirm a disconnect.
+
 - Luma Sync: edit screen, input and performance settings per device type (iPhone & iPad, Apple TV, Mac) under Per device, including the new banner rotation and item count, and choose how sources are sorted for the profile. Requires a Luma build with per-device settings.
 - Read and write Luma native Home extensions without flattening nested genre collections, folder sections, catalog groups, renamed titles or per-widget configuration. Complete Home is the default Luma export; compatibility files remain available. Requires a Luma build with native Home extension support.
 - Detect collection-only and case-only renames during import review; keep imported native page structure and independent catalog copies when preserving local catalogs. Materialize missing catalog instance IDs recursively for older drafts.

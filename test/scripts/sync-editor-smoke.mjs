@@ -255,6 +255,23 @@ scenario: try {
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.equal(new URL(page.url()).pathname, '/widgets/sync/');
   assert.equal(await page.getByRole('link', { name: /admin/i }).count(), 0);
+  if (testConnections) {
+    const privacy = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: 390, height: 844 } });
+    const href = await page.getByRole('link', { name: 'Privacy · Datenschutz' }).getAttribute('href');
+    const opened = await privacy.goto(new URL(href, origin).href);
+    assert.equal(opened.status(), 200);
+    assert.match(opened.headers()['content-security-policy'], /frame-ancestors 'none'/);
+    await privacy.getByRole('heading', { name: 'Privacy & credits' }).waitFor();
+    await privacy.getByRole('link', { name: 'Deutsch' }).click();
+    await privacy.getByRole('heading', { name: 'Was Luma Sync speichert' }).waitFor();
+    assert.equal(new URL(privacy.url()).hash, '#de');
+    assert.equal(await privacy.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await privacy.screenshot({ path: path.join(evidence, 'privacy-mobile.png'), fullPage: true });
+    await privacy.setViewportSize({ width: 1100, height: 850 });
+    await privacy.goto(new URL(href, origin).href);
+    await privacy.screenshot({ path: path.join(evidence, 'privacy-desktop.png'), fullPage: true });
+    await privacy.close();
+  }
   await page.getByRole('button', { name: 'Sign in with passkey' }).waitFor();
   await page.screenshot({ path: path.join(evidence, 'luma-portal-copy-sign-in.png') });
   await page.getByRole('button', { name: 'Sign in with passkey' }).click();

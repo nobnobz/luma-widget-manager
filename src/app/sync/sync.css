@@ -477,3 +477,12 @@ body:has(.sync-web) { background: var(--background); }
 .sync-secret { display: inline-block; min-width: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); font: .85rem/1.5 var(--font-mono); overflow-wrap: anywhere; }
 .sync-panel > .sync-banner { margin-bottom: 12px; }
 .sync-panel > .sync-record[aria-labelledby="sync-watch-title"] { margin-top: 16px; padding-top: 4px; }
+
+.sync-privacy { display: grid; width: min(100% - 2rem, 46rem); align-self: center; gap: 1.25rem; margin-block: clamp(1.5rem, 5vw, 3.5rem); }
+.sync-privacy > header { display: grid; gap: .4rem; }
+.sync-privacy h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 650; line-height: 1.2; }
+.sync-privacy h3 { font-weight: 600; margin-top: .35rem; }
+.sync-privacy nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+.sync-privacy section { scroll-margin-top: 1rem; }
+.sync-text-link { color: var(--foreground); text-decoration: underline; text-underline-offset: .2em; }
+.sync-text-link:hover { color: var(--muted-foreground); }

@@ -74,7 +74,9 @@ function ProviderAccount({ provider, ...props }: Props & { provider: ManagedProv
     const previous = connectionID(expected.current, realm);
     // Commit first: cancelling or losing the replacement flow keeps the old account.
     if (previous && previous !== connectionID(value, realm)) {
-      try { await client.disconnect(previous, signal); }
+      try {
+        if (!await client.disconnect(previous, signal)) setNotice('Disconnected in Luma. To make sure access is revoked, remove Luma in the provider’s account settings.');
+      }
       catch { setNotice('The profile was updated. The previous authorization could not be removed; revoke it in the provider’s account settings.'); }
     }
     pending.current = null; setReady(null); setChallenge(null); setMode(null); setRevision(n => n + 1);
@@ -190,6 +192,7 @@ export function ProviderConnections(props: Props) {
   return <section className="sync-panel" aria-labelledby="sync-accounts-title">
     <h2 id="sync-accounts-title">Connected accounts</h2>
     <p className="sync-setting-note">Connect once for the selected profile. Apps on this Luma Sync server use the connection after their next sync. Existing direct sign-ins stay on their devices.</p>
+    {props.providers?.includes('trakt') && <p className="sync-setting-hint">Luma uses Trakt but is not endorsed or certified by Trakt.</p>}
     {props.dirty && <p className="sync-setting-note">Save or discard your setup changes before changing an account.</p>}
     <div className="grid gap-3 md:grid-cols-3">{managedProviders.map(provider => <ProviderAccount {...props} key={provider} provider={provider} />)}</div>
     <WatchActivity token={props.token} profile={props.profile} documents={props.documents} providers={props.providers}

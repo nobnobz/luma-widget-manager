@@ -5,7 +5,8 @@ import { resolve } from 'node:path';
 const out = resolve('out');
 const target = resolve(process.env.LUMA_WIDGET_EDITOR_PACKAGE_OUTPUT || 'build/sync-editor');
 const site = resolve(target, 'site');
-const html = readFileSync(resolve(out, 'sync/index.html'), 'utf8');
+const pages = ['sync/index.html', 'sync/privacy/index.html'];
+const html = pages.map(page => readFileSync(resolve(out, page), 'utf8')).join('\n');
 if (!html.includes('/widgets/_next/static/')) throw new Error('Build with NEXT_PUBLIC_BASE_PATH=/widgets first.');
 const hashes = new Set();
 for (const [, attrs, source] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
@@ -46,7 +47,7 @@ const headers = [
   ...(configuredAddonsEnabled ? [`frame-src ${scoped(readerPath)}`] : []),
   "base-uri 'none'", "frame-ancestors 'none'", "form-action 'none'", "object-src 'none'", "worker-src 'none'",
 ].join('; ');
-const files = ['sync/index.html', '_next/static', ...(configuredAddonsEnabled ? [readerFile] : []), 'sync-assets/lzfse.wasm', 'sync-assets/LZFSE-LICENSE.txt', 'sync-assets/favicon-white.svg',
+const files = [...pages, '_next/static', ...(configuredAddonsEnabled ? [readerFile] : []), 'sync-assets/lzfse.wasm', 'sync-assets/LZFSE-LICENSE.txt', 'sync-assets/favicon-white.svg',
   'luma-favicon.svg', 'luma-icon-16.png', 'luma-icon-32.png', 'branding/luma-icon.png'];
 for (const file of files) if (!existsSync(resolve(out, file))) throw new Error(`Missing built asset ${file}.`);
 rmSync(site, { recursive: true, force: true });
@@ -57,9 +58,10 @@ writeFileSync(resolve(target, 'widgets.caddy'), `
 header @widgetLanding Cache-Control "no-store"
 redir @widgetLanding /widgets/sync/ 302
 redir /widgets/sync /widgets/sync/ 308
+redir /widgets/sync/privacy /widgets/sync/privacy/ 308
 handle_path /widgets/* {
     root * /etc/caddy/widget-editor/site${readerRoute}
-    @widgetFile path /sync/ /_next/static/* /sync-assets/lzfse.wasm /sync-assets/LZFSE-LICENSE.txt /sync-assets/favicon-white.svg /luma-favicon.svg /luma-icon-16.png /luma-icon-32.png /branding/luma-icon.png
+    @widgetFile path /sync/ /sync/privacy/ /_next/static/* /sync-assets/lzfse.wasm /sync-assets/LZFSE-LICENSE.txt /sync-assets/favicon-white.svg /luma-favicon.svg /luma-icon-16.png /luma-icon-32.png /branding/luma-icon.png
     handle @widgetFile {
         header {
             Content-Security-Policy "${headers}"

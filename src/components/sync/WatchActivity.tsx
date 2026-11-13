@@ -70,7 +70,7 @@ export function WatchActivity({ token, profile, documents, providers, canChange,
     <div><h3 id="sync-watch-title" className="font-medium">Sync watch activity</h3>
       <p className="sync-setting-hint" role="status">{consent === undefined || accounts === null ? 'Checking…' : consent
         ? `On for ${names(covered.map(provider => ({ provider })))}${waiting.length ? `. Confirm ${names(waiting)} in Luma.` : ''}` : 'Off'}</p></div>
-    <p className="sync-setting-note">Brings watchlist items, watched marks and saved pauses together with your connected Trakt, Simkl and MDBList accounts, and sends new watched marks from Luma to them. The exchange itself runs on your Luma devices at their next sync.</p>
+    <p className="sync-setting-note">Brings watchlist items, watched marks and saved pauses together with your connected Trakt, Simkl and MDBList accounts, and sends new watched marks from Luma to them. The exchange runs on your Luma devices at their next sync. To report your live playback position to a service, select it as the watch progress source in Luma.</p>
     {accounts && !usable.length && <p className="sync-setting-note">Connect an account above first.</p>}
     {notice && <p className="sync-banner" role="status">{notice}</p>}
     {error && !open && <p className="sync-banner sync-error" role="alert">{error}</p>}

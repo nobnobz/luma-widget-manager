@@ -762,6 +762,6 @@ export function SyncEditor() {
       </div>}
     </>}
     </main>
-    <footer className="sync-footer">Luma Sync</footer>
+    <footer className="sync-footer"><span>Luma Sync</span><a className="sync-text-link" href={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/sync/privacy/`}>Privacy · Datenschutz</a></footer>
   </div>;
 }

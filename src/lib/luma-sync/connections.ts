@@ -73,8 +73,14 @@ export class ManagedConnections {
   }
   async disconnect(id: string, signal?: AbortSignal) {
     requireSync(uuid(id));
-    try { await this.call(id, signal, 'DELETE'); }
-    catch (error) { if (!(error instanceof SyncHTTPError && error.status === 404)) throw error; }
+    try {
+      const reply = await this.call(id, signal, 'DELETE');
+      requireSync(reply.ok === true && (reply.providerRevocationUnconfirmed === undefined || typeof reply.providerRevocationUnconfirmed === 'boolean'));
+      return reply.providerRevocationUnconfirmed !== true;
+    } catch (error) {
+      if (!(error instanceof SyncHTTPError && error.status === 404)) throw error;
+      return true;
+    }
   }
   async cancel(id: string) {
     requireSync(uuid(id));
